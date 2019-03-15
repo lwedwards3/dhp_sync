@@ -242,3 +242,4 @@ class VPRSync:
         Emails a list of these to the DHP board'''
         return 0
 
+vprs = VPRSync()

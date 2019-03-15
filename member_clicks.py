@@ -162,7 +162,6 @@ class MemberClicks:
                 url = response['nextPageUrl']
         
         def parse_vp_request_profiles():
-            print('parse_profiles')
             vp_requests=[]
             for profile in self.vp_request_profiles:
                 address = profile['[Address | Primary | Line 1]'] \
@@ -246,7 +245,7 @@ class MemberClicks:
         note = ''
         for attr in attrs:
             val = profile[attr[0]]
-            if len(val) > 0:
-                note += attr[1] + ': ' + val + '\n'
+            if len(str(val)) > 0:
+                note + str(attr[1]) + ': ' + str(val) + '\n'
         return note
 
