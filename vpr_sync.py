@@ -37,8 +37,8 @@ from pathlib import Path
 from wunder_list import WunderList
 from member_clicks import MemberClicks
 
-CREDENTIALS = Path.cwd() / 'creds.json'
-LOG_FILE = Path.cwd() / 'log.txt'
+CREDENTIALS = Path.cwd().parent / 'creds.json'
+LOG_FILE = Path.cwd().parent / 'log.txt'
 
 
 class VPRSync:
