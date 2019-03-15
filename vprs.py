@@ -31,7 +31,6 @@ VPRSync: Syncronizes WunderList with MemberClicks.  At present, this goes in
 one direction: New requests from MemberClicks are added to WunderList
 '''
 
-import sys
 import datetime as dt
 import json
 from pathlib import Path
@@ -40,7 +39,6 @@ from mc import MemberClicks
 
 CREDENTIALS = Path.cwd() / 'creds.json'
 LOG_FILE = Path.cwd() / 'log.txt'
-WONDERLIST_PROFILE = 'WunderList'
 
 
 class VPRSync:

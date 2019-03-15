@@ -31,18 +31,12 @@ VPRSync: Syncronizes WunderList with MemberClicks.  At present, this goes in
 one direction: New requests from MemberClicks are added to WunderList
 '''
 
-import sys
-import datetime as dt
 import json
 from pathlib import Path
-from requests_oauthlib import OAuth2Session
-from requests.auth import HTTPBasicAuth
-from oauthlib.oauth2 import BackendApplicationClient
 import wunderpy3
 
-CREDENTIALS = Path.cwd() / 'creds.json'
-LOG_FILE = Path.cwd() / 'log.txt'
-WONDERLIST_PROFILE = 'WunderList'
+CREDENTIALS = Path.cwd().parent / 'creds.json'
+WUNDERLIST_PROFILE = 'WunderList'
 
 
 class WunderList:
@@ -63,11 +57,11 @@ class WunderList:
     def _get_credentials(self):
         with open(str(CREDENTIALS), 'r') as fp:
             data = json.load(fp)
-        self.client_id = data[WONDERLIST_PROFILE]['client_id']
-        self.client_secret = data[WONDERLIST_PROFILE]['client_secret']
-        self.access_token = data[WONDERLIST_PROFILE]['access_token']
-        self.list_id = int(data[WONDERLIST_PROFILE]['list_id'])
-        self.archive_list_id = int(data[WONDERLIST_PROFILE]['archive_list_id'])
+        self.client_id = data[WUNDERLIST_PROFILE]['client_id']
+        self.client_secret = data[WUNDERLIST_PROFILE]['client_secret']
+        self.access_token = data[WUNDERLIST_PROFILE]['access_token']
+        self.list_id = int(data[WUNDERLIST_PROFILE]['list_id'])
+        self.archive_list_id = int(data[WUNDERLIST_PROFILE]['archive_list_id'])
 
     def get_lists(self):
         '''Retrieves a list of all lists in the DHP Wunderlist account'''
