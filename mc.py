@@ -161,17 +161,6 @@ class MemberClicks:
                     break
                 url = response['nextPageUrl']
         
-        def _officer_notes(self, profile):
-            return ['Departs: '\
-                    + profile['Vacation Patrol Request Departure Date'] \
-                    + ' ' + profile['Vacation Patrol Request Departure Time'], 
-                    'Returns: '\
-                    + profile['Vacation Patrol Request Return Date'] \
-                    + ' ' + profile['Vacation Patrol Request Return Time'], 
-                    profile['Vacation Patrol Request Special Notes to Officer']] + '\n\n'\
-                    + 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
-
-        
         def parse_vp_request_profiles():
             print('parse_profiles')
             vp_requests=[]
@@ -179,7 +168,7 @@ class MemberClicks:
                 address = profile['[Address | Primary | Line 1]'] \
                 + ' ' + profile['[Address | Primary | Line 2]']
                 address = address.strip()
-                officer_notes = self._officer_notes(profile)
+                officer_notes = self.profile_info(profile)
                 wl_patrol_date = patrol_date.strftime(self.wl_date_format)
                 vp_requests.append([(address, wl_patrol_date ),
                                          officer_notes])
