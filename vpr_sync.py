@@ -34,8 +34,8 @@ one direction: New requests from MemberClicks are added to WunderList
 import datetime as dt
 import json
 from pathlib import Path
-from wl import WunderList
-from mc import MemberClicks
+from wunder_list import WunderList
+from member_clicks import MemberClicks
 
 CREDENTIALS = Path.cwd() / 'creds.json'
 LOG_FILE = Path.cwd() / 'log.txt'
@@ -242,4 +242,4 @@ class VPRSync:
         Emails a list of these to the DHP board'''
         return 0
 
-vprs = VPRSync()
+vprs = VPRSync(auto_mode=True)

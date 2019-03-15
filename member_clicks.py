@@ -221,31 +221,37 @@ class MemberClicks:
                 ('Employees, caregivers or others regularly on the property', 'On property'),
                 ('Pet - please describe any dogs (breed, size, name, list precautions)', 'Pets'),
                 ('Renters? Please list their names and vehicle information, including color', 'Renters'),
-                ('Vehicle Number 1 (make/model/year/color)', 'Vehicle'),
-                ('Vehicle Number 2 (make/model/year/color)', 'Vehicle'),
-                ('Vehicle Number 3 (make/model/year/color)', 'Vehicle'),
-                ('Vehicle Number 4 (make/model/year/color)', 'Vehicle'),
-                ('Vehicle Number 5 (make/model/year/color)', 'Vehicle'),
+                ('Vehicle Number 1 (make/model/year/color)', 'Vehicle1'),
+                ('Vehicle Number 2 (make/model/year/color)', 'Vehicle2'),
+                ('Vehicle Number 3 (make/model/year/color)', 'Vehicle3'),
+                ('Vehicle Number 4 (make/model/year/color)', 'Vehicle4'),
+                ('Vehicle Number 5 (make/model/year/color)', 'Vehicle5'),
                 ('[Address | Primary | Line 1]', 'Addr-prime'),
                 ('[Address | Primary | Line 2]', 'Addr2-prime'),
                 ('[Address | to be Patrolled | Line 1]', 'Addr-patrol'),
                 ('[Address | to be Patrolled | Line 2]', 'Addr-patrol'),
-                ('[Phone | Cell]', 'Ph-cell'),
-                ('[Phone | Home]', 'Ph-home'),
-                ('[Phone | Other]', 'Ph-other'),
-                ('[Phone | Work]', 'Ph-work'),
+                ('[Phone | Cell]', 'Phone-cell'),
+                ('[Phone | Home]', 'Phone-home'),
+                ('[Phone | Other]', 'Phone-other'),
+                ('[Phone | Work]', 'Phone-work'),
                 ('[Email | Email]', 'Email'),
                 ('Emergency Contact 1- Name', 'EM contact'),
-                ('Emergency Contact 1- Phone Number', 'EM contact ph'),
-                ('Emergency Contact 1- Relationship', 'EM contact rel'),
-                ('Emergency Contact 2 - Name', 'EM contact2'),
-                ('Emergency Contact 2 - Phone Number', 'EM contact2 ph'),
-                ('Emergency Contact 2 - Relationship', 'Em contact 2 rel'),
+                ('Emergency Contact 1- Phone Number', 'Emg contact ph'),
+                ('Emergency Contact 1- Relationship', 'Emg contact rel'),
+                ('Emergency Contact 2 - Name', 'Emg contact2'),
+                ('Emergency Contact 2 - Phone Number', 'Emg contact2 ph'),
+                ('Emergency Contact 2 - Relationship', 'Emg contact 2 rel'),
                 ('Jurisdiction - Police', 'Jurisdiction'))
-        note = ''
-        for attr in attrs:
+        note = [profile['Vacation Patrol Request Special Notes to Officer'],
+                    '-----------------------------------',
+                    'Departs: '+ profile['Vacation Patrol Request Departure Date'] \
+                     + ' ' + profile['Vacation Patrol Request Departure Time'], 
+                                 'Returns: ' + profile['Vacation Patrol Request Return Date'] \
+                                 + ' ' + profile['Vacation Patrol Request Return Time'],'']
+        for attr in attrs[6:]:
             val = profile[attr[0]]
             if len(str(val)) > 0:
-                note + str(attr[1]) + ': ' + str(val) + '\n'
+                note.append(str(attr[1]) + ': ' + str(val))
+                note.append('')
         return note
 
