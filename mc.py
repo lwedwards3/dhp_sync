@@ -219,5 +219,45 @@ class MemberClicks:
         end_point = '/api/v1/member-type'
         return self._get_json(end_point=end_point)
 
- 
+    def profile_info(self, profile):
+        attrs = (('Vacation Patrol Request Special Notes to Officer', 'VP Note'),
+                ('Vacation Patrol Request Departure Date', 'Depart date'),
+                ('Vacation Patrol Request Departure Time', 'Depart time'),
+                ("Vacation Patrol Request Officer's Notes", 'Other note'),
+                ('Vacation Patrol Request Return Date', 'Return date'),
+                ('Vacation Patrol Request Return Time', 'Return time'),
+                ('[Contact Name]', 'Contact'),
+                ('[Phone | Primary]', 'Phone-prime'),
+                ('[Email | Primary]', 'Email-prime'),
+                ('Other Notes to Officer', 'Other notes'),
+                ('Employees, caregivers or others regularly on the property', 'On property'),
+                ('Pet - please describe any dogs (breed, size, name, list precautions)', 'Pets'),
+                ('Renters? Please list their names and vehicle information, including color', 'Renters'),
+                ('Vehicle Number 1 (make/model/year/color)', 'Vehicle'),
+                ('Vehicle Number 2 (make/model/year/color)', 'Vehicle'),
+                ('Vehicle Number 3 (make/model/year/color)', 'Vehicle'),
+                ('Vehicle Number 4 (make/model/year/color)', 'Vehicle'),
+                ('Vehicle Number 5 (make/model/year/color)', 'Vehicle'),
+                ('[Address | Primary | Line 1]', 'Addr-prime'),
+                ('[Address | Primary | Line 2]', 'Addr2-prime'),
+                ('[Address | to be Patrolled | Line 1]', 'Addr-patrol'),
+                ('[Address | to be Patrolled | Line 2]', 'Addr-patrol'),
+                ('[Phone | Cell]', 'Ph-cell'),
+                ('[Phone | Home]', 'Ph-home'),
+                ('[Phone | Other]', 'Ph-other'),
+                ('[Phone | Work]', 'Ph-work'),
+                ('[Email | Email]', 'Email'),
+                ('Emergency Contact 1- Name', 'EM contact'),
+                ('Emergency Contact 1- Phone Number', 'EM contact ph'),
+                ('Emergency Contact 1- Relationship', 'EM contact rel'),
+                ('Emergency Contact 2 - Name', 'EM contact2'),
+                ('Emergency Contact 2 - Phone Number', 'EM contact2 ph'),
+                ('Emergency Contact 2 - Relationship', 'Em contact 2 rel'),
+                ('Jurisdiction - Police', 'Jurisdiction'))
+        note = ''
+        for attr in attrs:
+            val = profile[attr[0]]
+            if len(val) > 0:
+                note += attr[1] + ': ' + val + '\n'
+        return note
 
