@@ -248,7 +248,7 @@ class VPRSync:
                         msg=msg)
 
     def test_email(self):
-        self.send_mail(to_addrs='lwedwards3@gmail.com',
+        self.send_mail(to_addrs='louis.edwards@novelis.com',
             msg='This is a test message.',
             subject='From VPS')
         print('Sent email')
