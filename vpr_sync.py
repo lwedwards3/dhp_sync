@@ -34,12 +34,14 @@ one direction: New requests from MemberClicks are added to WunderList
 import datetime as dt
 import json
 from pathlib import Path
+import smtplib
+
 from wunder_list import WunderList
 from member_clicks import MemberClicks
 
 CREDENTIALS = Path.cwd().parent / 'creds.json'
 LOG_FILE = Path.cwd().parent / 'log.txt'
-
+CRED_PROFILE = 'MemberClicks_email'
 
 class VPRSync:
     '''This Class handles the data sync between MemberClicks and Wunderlist.
@@ -68,6 +70,13 @@ class VPRSync:
             self.sync_archive()
             self.post_logfile()
         
+    def _get_credentials(self):
+        with open(str(CREDENTIALS), 'r') as fp:
+            data = json.load(fp)
+        self.email_host = data[CRED_PROFILE]['email_host']
+        self.email_address = data[CRED_PROFILE]['email_address']
+        self.password = data[CRED_PROFILE]['password']
+    
     def _get_mc_requests(self):
         self.mc_requests = self.mc.get_open_requests()
         self.num_requests = len(self.mc_requests)
@@ -223,6 +232,17 @@ class VPRSync:
 
 
     ### FUTURE ################################################################
+    def send_mail(self, to_addrs, msg, subject=None):
+        if not type(to_addrs) == list:
+            to_addrs = list(to_addrs)
+        if subject:
+            msg = 'Subject: {}\n\n{}'.format(subject, msg)
+        with smtplib.SMTP_SSL(self.email_host, 465) as server:
+            server.login(self.email_address, self.password)
+            server.sendmail(from_addr=self.email_address,
+                        to_addrs=to_addrs,
+                        msg=msg)
+
     def email_member_when_complete(self):
         '''Identifies completed Wunderlist requests and emails the member.
         

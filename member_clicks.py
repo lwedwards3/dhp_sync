@@ -53,7 +53,7 @@ class MemberClicks:
         self.access_token_expires = dt.datetime.now() + dt.timedelta(days=-10)
         self.mc_date_format = "%m/%d/%Y"  # Memberclicks date format
         self.profile_search_id=None
-        self.request_cutoff_hour = 20
+        self.request_cutoff_hour = 23
         self.vp_request_profiles=[]
         self.vp_requests=[]
         self.wl_date_format = "%Y-%m-%d"  # WunderList date format
