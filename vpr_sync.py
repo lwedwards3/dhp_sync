@@ -69,6 +69,7 @@ class VPRSync:
             #self.sync_assets()
             self.sync_archive()
             self.post_logfile()
+            self.test_email()
         
     def _get_credentials(self):
         with open(str(CREDENTIALS), 'r') as fp:
@@ -243,6 +244,9 @@ class VPRSync:
                         to_addrs=to_addrs,
                         msg=msg)
 
+    def test_email(self):
+        send_email('lwedwards3@gmail.com','This is a test message.', 'From VPS')
+    
     def email_member_when_complete(self):
         '''Identifies completed Wunderlist requests and emails the member.
         
