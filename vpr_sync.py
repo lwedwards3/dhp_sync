@@ -58,6 +58,7 @@ class VPRSync:
     def __init__(self, auto_mode=False):
         self.mc = MemberClicks()
         self.wl = WunderList()
+        self._get_credentials()
         self.mc_requests = None
         self.wl_tasks = None
         self.wl_archived_tasks = None
