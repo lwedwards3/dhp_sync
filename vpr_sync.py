@@ -245,7 +245,8 @@ class VPRSync:
                         msg=msg)
 
     def test_email(self):
-        self.send_email('lwedwards3@gmail.com','This is a test message.', 'From VPS')
+        self.send_mail('lwedwards3@gmail.com','This is a test message.', 'From VPS')
+        print('Sent email')
     
     def email_member_when_complete(self):
         '''Identifies completed Wunderlist requests and emails the member.
