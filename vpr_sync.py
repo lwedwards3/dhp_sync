@@ -237,10 +237,11 @@ class VPRSync:
     def send_mail(self, to_addrs, msg, subject=None):
         if not type(to_addrs) == list:
             to_addrs = list(to_addrs)
-            print('converted to list')
+            print(to_addrs)
         if subject:
             msg = 'Subject: {}\n\n{}'.format(subject, msg)
-            print('merged subject')
+        msg = 'Test message'
+        print(msg)
         with smtplib.SMTP_SSL(self.email_host, 465) as server:
             server.login(self.email_address, self.password)
             server.sendmail(from_addr=self.email_address,
@@ -248,17 +249,17 @@ class VPRSync:
                         msg=msg)
 
     def test_email(self):
-        '''self.send_mail(to_addrs='louis.edwards@novelis.com',
+        self.send_mail(to_addrs='louis.edwards@novelis.com',
             msg='This is a test message.',
-            subject='From VPS')'''
-        SUBJECT = 'Vacation Patrol Report'
+            subject='From VPS')
+        '''SUBJECT = 'Vacation Patrol Report'
         TEXT = 'Hi Claudia,\n\nThis is a test.  Can you tell me if you get this?'
         msg = 'Subject: {}\n\n{}'.format(SUBJECT, TEXT)
         with smtplib.SMTP_SSL(self.email_host, 465) as server:
             server.login(self.email_address, self.password)
             server.sendmail(from_addr="VacationPatrol@DruidHillsPatrol.org",
                         to_addrs=['louis.edwards@novelis.com'],
-                        msg=msg)
+                        msg=msg)'''
         print('Sent email')
     
     def email_member_when_complete(self):
