@@ -248,9 +248,17 @@ class VPRSync:
                         msg=msg)
 
     def test_email(self):
-        self.send_mail(to_addrs='louis.edwards@novelis.com',
+        '''self.send_mail(to_addrs='louis.edwards@novelis.com',
             msg='This is a test message.',
-            subject='From VPS')
+            subject='From VPS')'''
+        SUBJECT = 'Vacation Patrol Report'
+        TEXT = 'Hi Claudia,\n\nThis is a test.  Can you tell me if you get this?'
+        msg = 'Subject: {}\n\n{}'.format(SUBJECT, TEXT)
+        with smtplib.SMTP_SSL('secure.emailsrvr.com', 465) as server:
+            server.login("vacationpatrol@druidhillspatrol.org", "dhp2019!")
+            server.sendmail(from_addr="VacationPatrol@DruidHillsPatrol.org",
+                        to_addrs=['louis.edwards@novelis.com'],
+                        msg=msg)
         print('Sent email')
     
     def email_member_when_complete(self):
