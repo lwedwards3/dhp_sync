@@ -236,11 +236,11 @@ class VPRSync:
     ### FUTURE ################################################################
     def send_mail(self, to_addrs, msg, subject=None):
         if not type(to_addrs) == list:
-            to_addrs = list(to_addrs)
+            to_addrs = [to_addrs]
             print(to_addrs)
         if subject:
             msg = 'Subject: {}\n\n{}'.format(subject, msg)
-        msg = 'Test message'
+        #msg = 'Test message'
         print(msg)
         with smtplib.SMTP_SSL(self.email_host, 465) as server:
             server.login(self.email_address, self.password)
