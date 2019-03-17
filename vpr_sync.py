@@ -255,7 +255,7 @@ class VPRSync:
         TEXT = 'Hi Claudia,\n\nThis is a test.  Can you tell me if you get this?'
         msg = 'Subject: {}\n\n{}'.format(SUBJECT, TEXT)
         with smtplib.SMTP_SSL(self.email_host, 465) as server:
-            server.login("vacationpatrol@druidhillspatrol.org", "dhp2019!")
+            server.login(self.email_address, self.password)
             server.sendmail(from_addr="VacationPatrol@DruidHillsPatrol.org",
                         to_addrs=['louis.edwards@novelis.com'],
                         msg=msg)
