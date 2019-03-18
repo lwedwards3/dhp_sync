@@ -70,7 +70,7 @@ class VPRSync:
             #self.sync_assets()
             self.sync_archive()
             self.post_logfile()
-            self.test_email()
+            #self.test_email()
         
     def _get_credentials(self):
         with open(str(CREDENTIALS), 'r') as fp:
