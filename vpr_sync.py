@@ -311,7 +311,9 @@ class VPRSync:
                                     assets,
                                     status)
 
-                self.send_mail(to_addrs='louis.edwards@novelis.com', 
+                self.send_mail(to_addrs=['louis.edwards@novelis.com',
+                                        'cpedwards@mindspring.com',
+                                        'lwedwards3@gmail.com'], 
                                 msg=msg, 
                                 subject='Vacation Patrol Update')
                 emails += 1
