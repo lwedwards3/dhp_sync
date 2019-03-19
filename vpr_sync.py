@@ -199,7 +199,7 @@ class VPRSync:
         def archive_tasks():
             print('archive_tasks')
             date_format = '%Y-%m-%d'
-            cutoff_date = dt.datetime.now() + dt.timedelta(days=-0)
+            cutoff_date = dt.datetime.now() + dt.timedelta(days=-1)
             self.num_archived_tasks = 0
 
             if not self.wl_tasks:
