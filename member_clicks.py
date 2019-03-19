@@ -46,7 +46,7 @@ class MemberClicks:
     Vacation requests are 'open' if the WorkDay is between the 
     DepartureDate and the ReturnDate.  
     
-    Same-day requests are cutoff at 8:00 pm the previous evening.
+    New requests are added at 11:00 pm the previous evening.
     '''
     def __init__(self):
         self.access_token=None
@@ -90,6 +90,7 @@ class MemberClicks:
             print('Access token obtained.')
     
     def _get_json(self, end_point):
+        '''Makes a request to memberclicks api and converts the response to json'''
         self._get_access_token()
         url = self.url + end_point
         return self.session.get(url=url).json()
@@ -164,13 +165,21 @@ class MemberClicks:
         def parse_vp_request_profiles():
             vp_requests=[]
             for profile in self.vp_request_profiles:
+                request={}
                 address = profile['[Address | Primary | Line 1]'] \
                 + ' ' + profile['[Address | Primary | Line 2]']
                 address = address.strip()
-                officer_notes = self.profile_info(profile)
-                wl_patrol_date = patrol_date.strftime(self.wl_date_format)
-                vp_requests.append([(address, wl_patrol_date ),
-                                         officer_notes])
+                request['address'] = address
+                request['due_date'] = patrol_date.strftime(self.wl_date_format)
+                request['officer_notes'] = self.profile_info(profile)
+                request['member_name'] = profile['[Contact Name]']
+                request['email_address'] = profile['[Email | Primary]']
+                request['task_id'] = ''
+                request['completed'] = ''
+                request['assets'] = []
+                request['send_email']=False
+                
+                vp_requests.append(request)
             print('requests',len(vp_requests))
             return vp_requests
 

@@ -1,37 +1,6 @@
-'''
-================================================================
-Version: DEV
-Date:    2019-03-14
-Name:    Louis Edwards
-Description:
-    Changed assignment of VPRSync.access_token_expires
-    
-================================================================
-Version: 0.1
-Date:    2019-03-13
-Name:    Louis Edwards
-Description:
-    Added task archive process
-    Development on comments and files, but these are not ready for service.
-===============================================================
-
-This project syncs vacation requests from the DHP's MemberClicks account
-with a WunderList task list that is accessible by the patrol officers
-from the shared iPhone.
-
-It contains three classes:
-    
-MemberClicks: Provides a method to obtain current vacation request data.
-
-WunderList: Provides methods to:
-    1. Obtain current tasks (both open and closed)
-    2. Create new tasks, and add Notes to a task.
-    
-VPRSync: Syncronizes WunderList with MemberClicks.  At present, this goes in
-one direction: New requests from MemberClicks are added to WunderList
-'''
-
 import datetime as dt
+import dateutil.parser
+import dateutil.tz
 import json
 from pathlib import Path
 import smtplib
@@ -41,17 +10,32 @@ from member_clicks import MemberClicks
 
 CREDENTIALS = Path.cwd().parent / 'creds.json'
 LOG_FILE = Path.cwd().parent / 'log.txt'
+REQUESTS_FILE = Path.cwd().parent / 'request_list.json'
 CRED_PROFILE = 'MemberClicks_email'
+MEMBER_EMAIL_TEMPLATE = Path.cwd() / 'member_email_template.txt'
+END_OF_DAY_EMAIL_TEMPLATE = Path.cwd() / 'end_of_day_email_template.txt'
+END_OF_DAY_EMAIL_ADDRESS = 'Patrol@DruidHillsPatrol.org'
 
 class VPRSync:
     '''This Class handles the data sync between MemberClicks and Wunderlist.
     
-    1. Retrieve open requests from MemberClicks
-    2. Retrieve tasks from WunderList (both complete and open)
-    3. Determine which MC requests do not exist in WL and add them.
+    1. DONE Retrieve open requests from MemberClicks
+    2. DONE Update each request with data saved in previous request_list (status, assets)
+    3. Determine if each request is new or not.
+        if new: create new wl task
+        if not new: add data from previous request_list.
+    4. Retrieve tasks from Wunderlist and add any manually-entered vp tasks to request_list
+    5. For each request in request_list:
+        Get wl status.
+        if status changed, then update request list and set send_email=True
+
+        Get wl assets
+        If not in request_list, then add and set send_email=True
+    6. Send emails to all members where request_list.send_email=True
+    7. Save request_list as json file
     
     To determine whether a vacation patrol request exists in WunderList, 
-    Memberclicks request (address, patrol_date) are matched with 
+    Memberclicks request (address, due_date) are matched with 
     WunderList task (title, due_date)
     '''
 
@@ -66,13 +50,17 @@ class VPRSync:
         self.num_posted_requests = 0
         self.num_archived_tasks = 0
         if auto_mode:
-            self.sync_requests()
-            #self.sync_assets()
+            self._get_mc_requests()
+            self._update_requests_from_file()
+            self._sync_with_wl()
+            self.send_member_emails()
+            self._save_requests_to_file()
             self.sync_archive()
             self.post_logfile()
-            self.test_email()
-        
+
+
     def _get_credentials(self):
+        '''Retrieves email credentials from a json file'''
         with open(str(CREDENTIALS), 'r') as fp:
             data = json.load(fp)
         self.email_host = data[CRED_PROFILE]['email_host']
@@ -80,147 +68,202 @@ class VPRSync:
         self.password = data[CRED_PROFILE]['password']
     
     def _get_mc_requests(self):
+        '''Retrieves open VP requests from Memberclicks'''
         self.mc_requests = self.mc.get_open_requests()
         self.num_requests = len(self.mc_requests)
         
     def _get_wl_tasks(self, archived=False):
+        '''Retrieves tasks from Wunderlist.  By default, retrieves working tasks,
+        but will retrieve archived tasks if archived=True'''
         if not archived:
             self.wl_tasks = self.wl.get_tasks(list_id=self.wl.list_id)
         else:
             self.wl_archived_tasks = self.wl.get_tasks(list_id=self.wl.archive_list_id)
 
-    def create_request_file(self):
-        with open('vacation_patrol_requests.json', 'w') as fp:
+    def _utc_to_local(self, string_time):
+        '''string_time is in ISO8601 UTC time
+        Returns a string like 2018-07-18 07:15:02 AM
+        '''
+        t = dateutil.parser.parse(string_time)
+        t = t.replace(tzinfo=dateutil.tz.tzutc())
+        t = t.astimezone(dateutil.tz.tzlocal())
+        t = t.strftime('%Y-%m-%d %r')
+        return t
+
+    def _update_requests_from_file(self):
+        print('_update_requests_from_file')
+        def get_previous_requests():
+                '''Retrieves the previous request list from a json file'''
+                with open(str(REQUESTS_FILE), 'r') as fp:
+                    self.previous_requests = json.load(fp)
+
+        get_previous_requests()
+        for req in self.mc_requests:
+            for pre in self.previous_requests:
+                if (req['address']==pre['address']) & (req['due_date']==pre['due_date']):
+                    req['completed'] = pre['completed']
+                    req['assets'] = pre['assets']
+                
+    def _sync_with_wl(self):
+        print('_sync_with_wl')
+
+        def update_request_from_wl(task):
+            for req in self.mc_requests:
+                try: 
+                    task['due_date']
+                except KeyError:
+                    task['due_date']=dt.datetime.now().strftime('%Y-%M-%D')
+                if (task['title'] == req['address']) & (task['due_date'] == req['due_date']):
+                    if not req['completed'] == task['completed']:
+                        req['send_email'] = True
+                    req['task_id'] = task['id']
+                    req['completed'] = task['completed']
+                    print('request updated')
+                    return True
+            return False
+
+        def create_new_request(task):
+            note = self.wl.get_note(task_id=task['id'])
+            self.mc_requests.append({
+                'address' : task['title'],
+                'due_date' : task['due_date'],
+                'officer_notes' : '' if not note else note,
+                'member_name' : '',
+                'email_address' : '',
+                'task_id' : task['id'],
+                'completed' : task['completed'],
+                'assets' : [],
+                'send_email' : task['completed']
+            })
+            print('request added')
+
+        def get_assets():
+            def asset_exists(asset_id, assets):
+                for asset in assets:
+                    if asset['id'] == asset_id:
+                        return True
+                return False
+
+            for request in self.mc_requests:
+                
+                if not request['task_id']=='':
+                    print('task_id:', request['task_id'])
+                    comments = self.wl.get_task_comments(task_id=request['task_id'])
+                    print('comments:',comments)
+                    for comment in comments:
+                        if not asset_exists(comment['id'], request['assets']):
+                            request['assets'].append({
+                                'id' : comment['id'],
+                                'created_at' : comment['created_at'],
+                                'text' : comment['text'],
+                                'type' : 'comment'
+                            })
+                            request['send_email']=True
+                            print('comment added')
+
+                print('about to get files',request['task_id'],request['address'])
+                files = self.wl.get_task_files(task_id=request['task_id'])
+                for file in files:
+                    if not asset_exists(file['id'], request['assets']):
+                        request['assets'].append({
+                            'id' : file['id'],
+                            'created_at' : file['created_at'],
+                            'text' : file['url'],
+                            'type' : 'file'
+                        })
+                        request['send_email']=True
+                        print('file added')
+
+        self._get_wl_tasks()
+        for task in self.wl_tasks:
+            if not update_request_from_wl(task):
+                create_new_request(task=task)
+        get_assets()
+        print('Sync with WL complete')
+
+
+    def _save_requests_to_file(self):
+        '''Dumps the current VP Request from Memberclicks to a json file'''
+        print('_save_requests_to_file')
+        with open(str(REQUESTS_FILE), 'w') as fp:
             json.dump(self.mc_requests, fp)
 
-    def sync_requests(self):
-        '''Syncs vacation requests from MemberClicks to WunderList.
-        For each active request in MemberClicks, this insures that a 
-        task for the current day exists in Wunderlist.'''
-        if not self.mc_requests:
-            self._get_mc_requests()
-        if not self.wl_tasks:
-            self._get_wl_tasks()
-        self.num_posted_requests = 0
-        
-        tasks_index = [(task['title'],task['due_date']) for task in self.wl_tasks]
-        
-        for request in self.mc_requests:
-            if not request[0] in tasks_index:
-                address = request[0][0]
-                due_date = request[0][1]
-                print((address, due_date))
-                task_id = self.wl.post_new_task(address, due_date)['id']
-                note = '\n'.join(request[1])
-                self.wl.post_new_note(task_id, note)
-                self.num_posted_requests += 1
-        print('Posted: '+str(self.num_posted_requests)+' requests')
 
-    def _retrieve_assets(self):
-        '''Checks Wunderlist for new task_comments and files.
-        Emails member with each new asset.
-        Records assets in archive file.'''
-        assets = {}
-        def check_assets(task_id):
-            if not task_id in assets.keys():
-                assets[task_id] = {'comments' : {}, 'files' : {}}
-
-        # First, COMMENTS for the incomplete tasks
-        comments = self.wl.get_list_comments()
-        for comment in comments:
-            task_id = comment['task_id']
-            check_assets(task_id)
-            assets[task_id]['comments'][comment['id']] = {
-                  'created_at' : comment['created_at'],
-                  'text' : comment['text'],
-                  'sentYN' : False}
-            
-        # Next, FILES for the incomplete tasks
-        files = self.wl.get_list_files()
-        for file in files:
-            task_id = file['task_id']
-            check_assets(task_id)
-            assets[task_id]['files'][file['id']] = {
-                  'created_at' : file['created_at'],
-                  'url' : file['url'],
-                  'sentYN' : False}
-
-        # Next, ASSETS for the completed tasks
-        for task in self.wl_tasks:
-            if task['completed']:
-                # COMMENTS
-                comments = self.wl.get_task_comments(task['id'])
-                for comment in comments:
-                    task_id = comment['task_id']
-                    check_assets(task_id)
-                    assets[task_id]['comments'][comment['id']] = {
-                          'created_at' : comment['created_at'],
-                          'text' : comment['text'],
-                          'sentYN' : False}
-    
-                # Next, FILES for the completed tasks
-                files = self.wl.get_task_files(task['id'])
-                for file in files:
-                    task_id = file['task_id']
-                    check_assets(task_id)
-                    assets[task_id]['files'][file['id']] = {
-                          'created_at' : file['created_at'],
-                          'url' : file['url'],
-                          'sentYN' : False}
-        return assets
-
-    def find_unsent_assets(self):
-        task_assets = self._retrieve_assets()
-        with open('assets.json', 'r') as fp:
-            file_assets = json.load(fp)
-        
-        def check_sent(task_id, asset_type, asset_id):
-            task_id = str(task_id)
-            if not task_id in file_assets.keys():
-                return False
-            if asset_type == 'comment':
-                return str(asset_id) in file_assets[task_id]['comments'].keys()
-            else:
-                return str(asset_id) in file_assets[task_id]['files'].keys()
-        
-        messages = []
-        for task_key, task_value in task_assets.items():
-            message_text = ''
-            for asset_key, asset_value in task_value['comments'].items():
-                if not check_sent(task_key, 'comment', asset_key):
-                    message_text = message_text + asset_value['created_at'] \
-                    + ': ' + asset_value['text'] + '\n\n'
-            for asset_key, asset_value in task_value['files'].items():
-                if not check_sent(task_key, 'file', asset_key):
-                    message_text = message_text + asset_value['created_at'] \
-                    + ': ' + asset_value['text'] + '\n\n'
-            messages.append([task_key, message_text])
-        return messages            
-        
     def sync_archive(self):
         '''Moves expired tasks to archive list.  A task is expired if 
         1. the due_date was yesterday or earlier
         2. the current time is past 1 AM
         '''
-        date_format = '%Y-%m-%d'
-        cutoff_date = dt.datetime.now() + dt.timedelta(days=-1)
-        self.num_archived_tasks = 0
+        print('sync_archive')
 
-        if not self.wl_tasks:
-            self._get_wl_tasks()
-                
-        if dt.datetime.now().hour >= 1:
-            for task in self.wl_tasks:
-                due = dt.datetime.strptime(task['due_date'],date_format)
-                if due <= cutoff_date:
-                    print(task['id'], task['revision'])
-                    self.wl.archive_task(task_id=task['id'],
-                                    revision=task['revision'])
-                    self.num_archived_tasks += 1
-        #self._get_wl_tasks()
-        
+        def archive_tasks():
+            print('archive_tasks')
+            date_format = '%Y-%m-%d'
+            cutoff_date = dt.datetime.now() + dt.timedelta(days=-0)
+            self.num_archived_tasks = 0
+
+            if not self.wl_tasks:
+                self._get_wl_tasks()
+                    
+            if dt.datetime.now().hour >= 1:
+                completed_tasks = []
+                incomplete_tasks = []
+                for task in self.wl_tasks:
+                    due = dt.datetime.strptime(task['due_date'],date_format)
+                    if due <= cutoff_date:
+                        print('archive task', task['id'], task['revision'])
+
+                        if task['completed']==True:
+                            completed_tasks.append(task)
+                        else:
+                            incomplete_tasks.append(task)
+
+                        self.wl.archive_task(task_id=task['id'],
+                                        revision=task['revision'])
+                        self.num_archived_tasks += 1
+
+            print('Archived '+str(self.num_archived_tasks)+' tasks')
+            return (completed_tasks, incomplete_tasks)
+
+        def end_of_day_report(archived_tasks):
+            '''archived_tasks is a tuple of two lists.  list0 = completed tasks
+            list1 = incomplete tasks.
+            Creates an end-of-day report summarizing the previous day's tasks'''
+            print('eod: '+str(len(archived_tasks[0])) + ' com inc ' + str(len(archived_tasks[1])))
+            if (len(archived_tasks[0]) + len(archived_tasks[1])) == 0:
+                return
+            
+            print('end of day report')
+            def list_to_string(task_list):
+                '''lst is a list of tasks.  Returns a string with each task on separate line'''
+                if len(task_list) == 0:
+                    return 'None'
+                response = ''
+                for task in task_list:
+                    response += task['title'] + '\n'
+                return response
+
+            with open(str(END_OF_DAY_EMAIL_TEMPLATE), 'r') as fp:
+                body = fp.read()
+
+            report_date = (dt.datetime.now() + dt.timedelta(days=-1)).strftime('%Y-%m-%d')
+            completed_tasks = list_to_string(archived_tasks[0])
+            incomplete_tasks = list_to_string(archived_tasks[1])
+            
+            msg = body.format(report_date,
+                                completed_tasks,
+                                incomplete_tasks)
+
+            self.send_mail(to_addrs=['louis.edwards@novelis.com',END_OF_DAY_EMAIL_ADDRESS], 
+                            msg=msg, 
+                            subject='DHP End of Day Vacation Patrol Report')
+
+        archived_tasks = archive_tasks()
+        end_of_day_report(archived_tasks)
+
 
     def post_logfile(self):
+        '''Records the summary statistics from each sync session to a log file.'''
         if self.num_archived_tasks == 0:
             str_archive = ''
         else:
@@ -233,51 +276,45 @@ class VPRSync:
             f.write(str_line)
 
 
-    ### FUTURE ################################################################
     def send_mail(self, to_addrs, msg, subject=None):
         if not type(to_addrs) == list:
             to_addrs = [to_addrs]
             print(to_addrs)
         if subject:
             msg = 'Subject: {}\n\n{}'.format(subject, msg)
-        #msg = 'Test message'
-        print(msg)
         with smtplib.SMTP_SSL(self.email_host, 465) as server:
             server.login(self.email_address, self.password)
             server.sendmail(from_addr=self.email_address,
                         to_addrs=to_addrs,
                         msg=msg)
+    
+    def send_member_emails(self):
+        '''For each request flagged as send_email
+        Creates an email document and sends it.'''
+        with open(str(MEMBER_EMAIL_TEMPLATE), 'r') as fp:
+            body = fp.read()
 
-    def test_email(self):
-        self.send_mail(to_addrs='louis.edwards@novelis.com',
-            msg='This is a test message.',
-            subject='From VPS')
-        '''SUBJECT = 'Vacation Patrol Report'
-        TEXT = 'Hi Claudia,\n\nThis is a test.  Can you tell me if you get this?'
-        msg = 'Subject: {}\n\n{}'.format(SUBJECT, TEXT)
-        with smtplib.SMTP_SSL(self.email_host, 465) as server:
-            server.login(self.email_address, self.password)
-            server.sendmail(from_addr="VacationPatrol@DruidHillsPatrol.org",
-                        to_addrs=['louis.edwards@novelis.com'],
-                        msg=msg)'''
-        print('Sent email')
-    
-    def email_member_when_complete(self):
-        '''Identifies completed Wunderlist requests and emails the member.
-        
-        1. Get completed tasks
-        2. Determine if member has been notified
-        3. Get any comments.
-        4. Get any files.
-        5. Email member that task is complete.  
-            Include comments and link to files in the email.
-        
-        How to determine if member has been emailed?
-            '''
-        return 0
-    
-    def email_requests_not_completed(self):
-        '''Identifies Wunderlist requests that were not completed on time.  
-        Emails a list of these to the DHP board'''
-        return 0
+        emails = 0
+        for req in self.mc_requests:
+            if req['send_email']==True:
+                assets = ''
+                for asset in req['assets']:
+                    assets = assets + self._utc_to_local(asset['created_at']) + '\n'
+                    assets = assets + asset['text'] + '\n\n'
+                if req['completed']==True:
+                    status = 'We completed your patrol, but will continue to watch for suspicious activity.'
+                else:
+                    status = 'We have not completed your patrol for today.'
+
+                msg = body.format(req['due_date'],
+                                    req['address'],
+                                    assets,
+                                    status)
+
+                self.send_mail(to_addrs='louis.edwards@novelis.com', 
+                                msg=msg, 
+                                subject='Vacation Patrol Update')
+                emails += 1
+                print('email sent')
+        print('sent '+str(emails)+' emails')
 

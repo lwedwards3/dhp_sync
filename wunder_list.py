@@ -68,7 +68,9 @@ class WunderList:
         return self.client.get_lists()
 
     def get_tasks(self, list_id=None, completed=None):
-        '''Retrieves open tasks from Wunderlist and stores them to wl_open_tasks'''
+        '''Retrieves tasks from Wunderlist and stores them to wl_open_tasks.
+        By default, retrieves both complete and incomplete tasks.
+        If completed=True then retrieves only incomplete tasks.'''
         list_id = self.list_id if not list_id else list_id
         if completed is None:
             tasks = self.client.get_tasks(list_id)
@@ -94,6 +96,14 @@ class WunderList:
         response = self.client.create_note(task_id, note)
         return response    
 
+    def get_note(self, task_id):
+        '''Returns the note, if available'''
+        note = self.client.get_task_notes(task_id=task_id)
+        if type(note) == list:
+            if len(note) > 0:
+                return note[0]['content']
+        return ''
+        
     def delete_task(self, task_id):
         '''Deletes an existing task from Wunderlist'''
         revision = self.client.get_task(task_id)['revision']
