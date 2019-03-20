@@ -305,7 +305,7 @@ class VPRSync:
                     assets = assets + '\t' + asset['text'] + '\n\n'
 
                 if len(assets) > 1:
-                    assets = '\tUpdates:\n\n' + assets
+                    assets = 'Updates:\n\n' + assets
 
                 msg = body.format(req['due_date'],
                                     req['address'],
