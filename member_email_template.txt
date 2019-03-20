@@ -1,7 +1,7 @@
 The Druid Hills Patrol visited your home, as you requested.
 
-Date: {}
-Address: {}
+{}
+Patrol date: {}
 
 {}
 
