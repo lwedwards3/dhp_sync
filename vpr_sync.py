@@ -333,8 +333,8 @@ class VPRSync:
                 if len(assets) > 1:
                     assets = 'Updates:\n\n' + assets
 
-                msg = body.format(req['due_date'],
-                                    req['address'],
+                msg = body.format(req['address'],
+                                    req['due_date'],
                                     assets)
 
                 self.send_mail(to_addrs=['louis.edwards@novelis.com',
