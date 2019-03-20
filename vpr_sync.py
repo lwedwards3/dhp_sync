@@ -281,7 +281,9 @@ class VPRSync:
             to_addrs = [to_addrs]
             print(to_addrs)
         if subject:
-            msg = 'Subject: {}\n\n{}'.format(subject, msg)
+            msg = 'From: DHP Vacation Patrol<VacationPatrol@DruidHillsPatrol.org>\nSubject: {}\n\n{}'.format(subject, msg)
+        else:
+            msg = 'From: DHP Vacation Patrol<VacationPatrol@DruidHillsPatrol.org>\n' + msg
         with smtplib.SMTP_SSL(self.email_host, 465) as server:
             server.login(self.email_address, self.password)
             server.sendmail(from_addr=self.email_address,
