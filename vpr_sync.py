@@ -52,7 +52,8 @@ class VPRSync:
         if auto_mode:
             self._get_mc_requests()
             self._update_requests_from_file()
-            self._sync_with_wl()
+            self.sync_requests()
+            self.sync_with_wl()
             self.send_member_emails()
             self._save_requests_to_file()
             self.sync_archive()
@@ -104,7 +105,7 @@ class VPRSync:
                     req['completed'] = pre['completed']
                     req['assets'] = pre['assets']
                 
-    def _sync_with_wl(self):
+    def sync_with_wl(self):
         print('_sync_with_wl')
 
         def update_request_from_wl(task):
@@ -182,6 +183,31 @@ class VPRSync:
         print('Sync with WL complete')
 
 
+    ######################################
+    def sync_requests(self):
+        '''Syncs vacation requests from MemberClicks to WunderList.
+        For each active request in MemberClicks, this insures that a 
+        task for the current day exists in Wunderlist.'''
+        if not self.mc_requests:
+            self._get_mc_requests()
+        if not self.wl_tasks:
+            self._get_wl_tasks()
+        self.num_posted_requests = 0
+        
+        tasks_index = [(task['title'],task['due_date']) for task in self.wl_tasks]
+        
+        for request in self.mc_requests:
+            if not (request['address'],request['due_date']) in tasks_index:
+                address = request['address']
+                due_date = request['due_date']
+                print('adding task for ',(address, due_date))
+                request['task_id'] = self.wl.post_new_task(address, due_date)['id']
+                note = '\n'.join(request['officer_notes'])
+                self.wl.post_new_note(request['task_id'], note)
+                self.num_posted_requests += 1
+        print('Posted: '+str(self.num_posted_requests)+' requests')
+    ######################################
+    
     def _save_requests_to_file(self):
         '''Dumps the current VP Request from Memberclicks to a json file'''
         print('_save_requests_to_file')
