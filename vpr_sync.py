@@ -299,23 +299,22 @@ class VPRSync:
             if req['send_email']==True:
                 assets = ''
                 for asset in req['assets']:
-                    assets = assets + self._utc_to_local(asset['created_at']) + '\n'
-                    assets = assets + asset['text'] + '\n\n'
-                if req['completed']==True:
-                    status = 'We completed your patrol, but will continue to watch for suspicious activity.'
-                else:
-                    status = 'We have not completed your patrol for today.'
+                    assets = assets + '\t' + self._utc_to_local(asset['created_at']) + '\n'
+                    assets = assets + '\t' + asset['text'] + '\n\n'
+
+                if len(assets) > 1:
+                    assets = '\tUpdates:\n\n' + assets
 
                 msg = body.format(req['due_date'],
                                     req['address'],
-                                    assets,
-                                    status)
+                                    assets)
 
                 self.send_mail(to_addrs=['louis.edwards@novelis.com',
                                         'cpedwards@mindspring.com',
-                                        'lwedwards3@gmail.com'], 
+                                        'lwedwards3@gmail.com',
+                                        'lwedwards@mindspring.com'], 
                                 msg=msg, 
-                                subject='Vacation Patrol Update')
+                                subject='DHP Vacation Patrol Update')
                 emails += 1
                 print('email sent')
         print('sent '+str(emails)+' emails')
