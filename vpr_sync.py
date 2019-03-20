@@ -235,7 +235,7 @@ class VPRSync:
             
             print('end of day report')
             def list_to_string(task_list):
-                '''lst is a list of tasks.  Returns a string with each task on separate line'''
+                '''task_list is a list of json tasks.  Returns a string with each task on separate line'''
                 if len(task_list) == 0:
                     return 'None'
                 response = ''
