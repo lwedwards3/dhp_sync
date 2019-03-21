@@ -4,6 +4,7 @@ import dateutil.tz
 import json
 from pathlib import Path
 import smtplib
+from email.mime.text import MIMEText
 
 from wunder_list import WunderList
 from member_clicks import MemberClicks
@@ -21,18 +22,15 @@ class VPRSync:
     
     1. DONE Retrieve open requests from MemberClicks
     2. DONE Update each request with data saved in previous request_list (status, assets)
-    3. Determine if each request is new or not.
-        if new: create new wl task
-        if not new: add data from previous request_list.
-    4. Retrieve tasks from Wunderlist and add any manually-entered vp tasks to request_list
-    5. For each request in request_list:
-        Get wl status.
-        if status changed, then update request list and set send_email=True
-
-        Get wl assets
-        If not in request_list, then add and set send_email=True
-    6. Send emails to all members where request_list.send_email=True
-    7. Save request_list as json file
+    3. Retrieve tasks from Wunderlist 
+    4. Sync with Wunderlist:
+        Match existing tasks to requests and look for:
+            Change in status (send email if changed to completed)
+            New assets not listed in the file.  (Send email if new assets found)
+        Create new tasks for unmatched requests.  (Do not send email)
+        Create new requests for unmatched (manually added) tasks (Email if complete)
+    6. DONE Send emails to all members where request_list.send_email=True
+    7. DONE Save request_list as json file
     
     To determine whether a vacation patrol request exists in WunderList, 
     Memberclicks request (address, due_date) are matched with 
@@ -281,7 +279,7 @@ class VPRSync:
                                 incomplete_tasks)
 
             self.send_mail(to_addrs=['louis.edwards@novelis.com',END_OF_DAY_EMAIL_ADDRESS], 
-                            msg=msg, 
+                            body=msg, 
                             subject='DHP End of Day Vacation Patrol Report')
 
         archived_tasks = archive_tasks()
@@ -302,19 +300,19 @@ class VPRSync:
             f.write(str_line)
 
 
-    def send_mail(self, to_addrs, msg, subject=None):
-        if not type(to_addrs) == list:
-            to_addrs = [to_addrs]
-            print(to_addrs)
-        if subject:
-            msg = 'From: DHP Vacation Patrol<VacationPatrol@DruidHillsPatrol.org>\nSubject: {}\n\n{}'.format(subject, msg)
-        else:
-            msg = 'From: DHP Vacation Patrol<VacationPatrol@DruidHillsPatrol.org>\n' + msg
+    def send_mail(self, to_addrs, body, subject=None):
+        if type(to_addrs) == list:
+            to_addrs = ','.join(to_addrs)
+        print(to_addrs)
+        
+        msg = MIMEText(body)
+        msg['From'] = 'DHP Vacation Patrol<VacationPatrol@DruidHillsPatrol.org>'
+        msg['To'] = to_addrs
+        msg['Subject'] = subject
+        
         with smtplib.SMTP_SSL(self.email_host, 465) as server:
             server.login(self.email_address, self.password)
-            server.sendmail(from_addr=self.email_address,
-                        to_addrs=to_addrs,
-                        msg=msg)
+            server.send_message(msg)
     
     def send_member_emails(self):
         '''For each request flagged as send_email
@@ -333,7 +331,7 @@ class VPRSync:
                 if len(assets) > 1:
                     assets = 'Updates:\n\n' + assets
 
-                msg = body.format(req['address'],
+                body = body.format(req['address'],
                                     req['due_date'],
                                     assets)
 
@@ -341,7 +339,7 @@ class VPRSync:
                                         'cpedwards@mindspring.com',
                                         'lwedwards3@gmail.com',
                                         'lwedwards@mindspring.com'], 
-                                msg=msg, 
+                                body=body, 
                                 subject='DHP Vacation Patrol Update')
                 emails += 1
                 print('email sent')
