@@ -171,13 +171,13 @@ class MemberClicks:
                 address = address.strip()
                 request['address'] = address
                 request['due_date'] = patrol_date.strftime(self.wl_date_format)
-                request['officer_notes'] = self.profile_info(profile)
-                request['member_name'] = profile['[Contact Name]']
-                request['email_address'] = profile['[Email | Primary]']
                 request['task_id'] = ''
-                request['completed'] = ''
+                request['completed'] = False
                 request['assets'] = []
                 request['send_email']=False
+                request['member_name'] = profile['[Contact Name]']
+                request['email_address'] = profile['[Email | Primary]']
+                request['officer_notes'] = self.profile_info(profile)
                 
                 vp_requests.append(request)
             print('requests',len(vp_requests))

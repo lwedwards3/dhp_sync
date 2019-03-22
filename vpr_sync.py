@@ -65,12 +65,14 @@ class VPRSync:
         self.email_host = data[CRED_PROFILE]['email_host']
         self.email_address = data[CRED_PROFILE]['email_address']
         self.password = data[CRED_PROFILE]['password']
-    
+
+
     def _get_mc_requests(self):
         '''Retrieves open VP requests from Memberclicks'''
         self.mc_requests = self.mc.get_open_requests()
         self.num_requests = len(self.mc_requests)
-        
+
+
     def _get_wl_tasks(self, archived=False):
         '''Retrieves tasks from Wunderlist.  By default, retrieves working tasks,
         but will retrieve archived tasks if archived=True'''
@@ -78,6 +80,7 @@ class VPRSync:
             self.wl_tasks = self.wl.get_tasks(list_id=self.wl.list_id)
         else:
             self.wl_archived_tasks = self.wl.get_tasks(list_id=self.wl.archive_list_id)
+
 
     def _utc_to_local(self, string_time):
         '''string_time is in ISO8601 UTC time
@@ -89,8 +92,10 @@ class VPRSync:
         t = t.strftime('%Y-%m-%d %r')
         return t
 
+
     def _update_requests_from_file(self):
         print('_update_requests_from_file')
+
         def get_previous_requests():
                 '''Retrieves the previous request list from a json file'''
                 with open(str(REQUESTS_FILE), 'r') as fp:
@@ -103,6 +108,7 @@ class VPRSync:
                     req['completed'] = pre['completed']
                     req['assets'] = pre['assets']
                 
+
     def sync_with_wl(self):
         print('_sync_with_wl')
 
@@ -181,7 +187,6 @@ class VPRSync:
         print('Sync with WL complete')
 
 
-    ######################################
     def sync_requests(self):
         '''Syncs vacation requests from MemberClicks to WunderList.
         For each active request in MemberClicks, this insures that a 
@@ -204,7 +209,6 @@ class VPRSync:
                 self.wl.post_new_note(request['task_id'], note)
                 self.num_posted_requests += 1
         print('Posted: '+str(self.num_posted_requests)+' requests')
-    ######################################
     
     def _save_requests_to_file(self):
         '''Dumps the current VP Request from Memberclicks to a json file'''
@@ -314,34 +318,45 @@ class VPRSync:
             server.login(self.email_address, self.password)
             server.send_message(msg)
     
-    def send_member_emails(self):
-        '''For each request flagged as send_email
-        Creates an email document and sends it.'''
-        with open(str(MEMBER_EMAIL_TEMPLATE), 'r') as fp:
-            body = fp.read()
+    def create_message_body(self, request):
+        '''request is a dictionary of data for an individual request.
+        Creates message body by merging address, date and assets
+        with a message template stored on disk.'''
+        for asset in request['assets']:
+            assets = assets + '\t' + self._utc_to_local(asset['created_at']) + '\n'
+            assets = assets + '\t' + asset['text'] + '\n\n'
 
+        if len(assets) > 1:
+            assets = 'Updates:\n\n' + assets
+
+        # gets the email template
+        with open(str(MEMBER_EMAIL_TEMPLATE), 'r') as fp:
+            template = fp.read()
+
+        return template.format(request['address'],
+                            request['due_date'],
+                            assets)
+
+
+    def send_member_emails(self):
+        '''For each request where send_email = True
+        Creates an email document and sends it.'''
         emails = 0
         for req in self.mc_requests:
             if req['send_email']==True:
-                assets = ''
-                for asset in req['assets']:
-                    assets = assets + '\t' + self._utc_to_local(asset['created_at']) + '\n'
-                    assets = assets + '\t' + asset['text'] + '\n\n'
+                body = self.create_message_body(req)
 
-                if len(assets) > 1:
-                    assets = 'Updates:\n\n' + assets
-
-                body = body.format(req['address'],
-                                    req['due_date'],
-                                    assets)
-
-                self.send_mail(to_addrs=['louis.edwards@novelis.com',
-                                        'cpedwards@mindspring.com',
-                                        'lwedwards3@gmail.com',
-                                        'lwedwards@mindspring.com'], 
+                self.send_mail(to_addrs=['lwedwards3@gmail.com'], 
                                 body=body, 
                                 subject='DHP Vacation Patrol Update')
                 emails += 1
                 print('email sent')
         print('sent '+str(emails)+' emails')
+
+    def debug_request_summary(self):
+        print('Requests summary: <address>, <due_date>, <task_id>, <completed>, <assets>, <send_email>')
+        for req in self.mc_requests:
+            print(req['address'], req['due_date'], req['task_id'], 
+                req['completed'], len(req['assets']), req['send_email'])
+            
 
