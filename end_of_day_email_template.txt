@@ -5,3 +5,6 @@ Completed vacation patrols:
 
 Incomplete vacation patrols:
 {}
+
+Upcoming patrols:
+{}

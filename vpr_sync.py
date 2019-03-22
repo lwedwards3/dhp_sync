@@ -236,6 +236,7 @@ class VPRSync:
             if dt.datetime.now().hour >= 1:
                 completed_tasks = []
                 incomplete_tasks = []
+                scheduled_tasks = []
                 for task in self.wl_tasks:
                     due = dt.datetime.strptime(task['due_date'],date_format)
                     if due <= cutoff_date:
@@ -249,16 +250,18 @@ class VPRSync:
                         self.wl.archive_task(task_id=task['id'],
                                         revision=task['revision'])
                         self.num_archived_tasks += 1
+                    else:
+                        scheduled_tasks.append(task)
 
             print('Archived '+str(self.num_archived_tasks)+' tasks')
-            return (completed_tasks, incomplete_tasks)
+            return (completed_tasks, incomplete_tasks, scheduled_tasks)
 
-        def end_of_day_report(archived_tasks):
+        def end_of_day_report(classified_tasks):
             '''archived_tasks is a tuple of two lists.  list0 = completed tasks
             list1 = incomplete tasks.
             Creates an end-of-day report summarizing the previous day's tasks'''
-            print('eod: '+str(len(archived_tasks[0])) + ' com inc ' + str(len(archived_tasks[1])))
-            if (len(archived_tasks[0]) + len(archived_tasks[1])) == 0:
+            print('eod: '+str(len(classified_tasks[0])) + ' com inc ' + str(len(classified_tasks[1])))
+            if (len(classified_tasks[0]) + len(classified_tasks[1])) == 0:
                 return
             
             print('end of day report')
@@ -275,19 +278,21 @@ class VPRSync:
                 body = fp.read()
 
             report_date = (dt.datetime.now() + dt.timedelta(days=-1)).strftime('%Y-%m-%d')
-            completed_tasks = list_to_string(archived_tasks[0])
-            incomplete_tasks = list_to_string(archived_tasks[1])
+            completed_tasks = list_to_string(classified_tasks[0])
+            incomplete_tasks = list_to_string(classified_tasks[1])
+            scheduled_tasks = list_to_string(classified_tasks[2])
             
             msg = body.format(report_date,
                                 completed_tasks,
-                                incomplete_tasks)
+                                incomplete_tasks,
+                                scheduled_tasks)
 
-            self.send_mail(to_addrs=['louis.edwards@novelis.com',END_OF_DAY_EMAIL_ADDRESS], 
+            self.send_mail(to_addrs=['lwedwards3@gmail.com',END_OF_DAY_EMAIL_ADDRESS], 
                             body=msg, 
                             subject='DHP End of Day Vacation Patrol Report')
 
-        archived_tasks = archive_tasks()
-        end_of_day_report(archived_tasks)
+        classified_tasks = archive_tasks()
+        end_of_day_report(classified_tasks)
 
 
     def post_logfile(self):
@@ -314,10 +319,11 @@ class VPRSync:
         msg['To'] = to_addrs
         msg['Subject'] = subject
         
-        with smtplib.SMTP_SSL(self.email_host, 465) as server:
+        print('Email to:',to_addrs, subject, body)
+        '''with smtplib.SMTP_SSL(self.email_host, 465) as server:
             server.login(self.email_address, self.password)
             server.send_message(msg)
-    
+    '''
     def create_message_body(self, request):
         '''request is a dictionary of data for an individual request.
         Creates message body by merging address, date and assets
