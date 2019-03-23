@@ -59,8 +59,8 @@ class VPRSync:
         self.credentials_email_profile = 'MemberClicks_email'
         self.log_file = str(Path.cwd().parent / 'log.txt')
         self.requests_file = str(Path.cwd().parent / 'request_list.json')
-        self.email_template_member = str(Path.cwd() / 'self.email_template_member.txt')
-        self.email_template_eod = str(Path.cwd() / 'self.email_template_eod.txt')
+        self.email_template_member = str(Path.cwd() / 'email_template_member.txt')
+        self.email_template_eod = str(Path.cwd() / 'email_template_eod.txt')
         self.email_address_eod = ['Patrol@DruidHillsPatrol.org','lwedwards3@gmail.com']
         self.email_address_member = ['lwedwards3@gmail.com']
         self.test_mode = test_mode
@@ -266,7 +266,7 @@ class VPRSync:
                 for task in self.tasks:
                     due = dt.datetime.strptime(task['due_date'],date_format)
                     if due <= cutoff_date:
-                        print('archive task', task['id'], task['revision'])
+                        print('archive task:', task['id'], task['revision'])
 
                         if task['completed']==True:
                             completed_tasks.append(task)
