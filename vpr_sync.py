@@ -302,11 +302,16 @@ class VPRSync:
 
             with open(self.email_template_eod, 'r') as fp:
                 body = fp.read()
+            
+            scheduled_tasks = []
+            for tsk in classified_tasks[2]:
+                if tsk['due_date'] == dt.datetime.now().strftime('%Y-%m-%d'):
+                    scheduled_tasks.append(tsk)
 
             report_date = (dt.datetime.now() + dt.timedelta(days=-1)).strftime('%Y-%m-%d')
             completed_tasks = list_to_string(classified_tasks[0])
             incomplete_tasks = list_to_string(classified_tasks[1])
-            scheduled_tasks = list_to_string(classified_tasks[2])
+            scheduled_tasks = list_to_string(scheduled_tasks)
             
             msg = body.format(report_date,
                                 completed_tasks,
