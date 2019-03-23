@@ -283,10 +283,10 @@ class VPRSync:
             return (completed_tasks, incomplete_tasks, scheduled_tasks)
 
         def end_of_day_report(classified_tasks):
-            '''archived_tasks is a tuple of two lists.  list0 = completed tasks
-            list1 = incomplete tasks.
+            '''Classified_tasks is a tuple of three lists.  list0 = completed tasks
+            list1 = incomplete tasks, list2 = scheduled_tasks.
             Creates an end-of-day report summarizing the previous day's tasks'''
-            print('eod: '+str(len(classified_tasks[0])) + ' com inc ' + str(len(classified_tasks[1])))
+            print('eod: '+str(len(classified_tasks[0])) + ' completed / incomplete: ' + str(len(classified_tasks[1])))
             if (len(classified_tasks[0]) + len(classified_tasks[1])) == 0:
                 return
             
@@ -297,21 +297,21 @@ class VPRSync:
                     return 'None'
                 response = ''
                 for task in task_list:
-                    response += task['title'] + '\n'
+                    response += task['title'] +'\t' + task['due_date'] + '\n'
                 return response
 
             with open(self.email_template_eod, 'r') as fp:
                 body = fp.read()
             
-            scheduled_tasks = []
+            '''scheduled_tasks = []
             for tsk in classified_tasks[2]:
                 if tsk['due_date'] == dt.datetime.now().strftime('%Y-%m-%d'):
                     scheduled_tasks.append(tsk)
-
+            '''
             report_date = (dt.datetime.now() + dt.timedelta(days=-1)).strftime('%Y-%m-%d')
             completed_tasks = list_to_string(classified_tasks[0])
             incomplete_tasks = list_to_string(classified_tasks[1])
-            scheduled_tasks = list_to_string(scheduled_tasks)
+            scheduled_tasks = list_to_string(classified_tasks[2])
             
             msg = body.format(report_date,
                                 completed_tasks,
