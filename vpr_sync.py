@@ -9,13 +9,14 @@ from email.mime.text import MIMEText
 from wunder_list import WunderList
 from member_clicks import MemberClicks
 
-CREDENTIALS = Path.cwd().parent / 'creds.json'
+'''CREDENTIALS = Path.cwd().parent / 'creds.json'
 LOG_FILE = Path.cwd().parent / 'log.txt'
 REQUESTS_FILE = Path.cwd().parent / 'request_list.json'
 CRED_PROFILE = 'MemberClicks_email'
 MEMBER_EMAIL_TEMPLATE = Path.cwd() / 'member_email_template.txt'
 END_OF_DAY_EMAIL_TEMPLATE = Path.cwd() / 'end_of_day_email_template.txt'
 END_OF_DAY_EMAIL_ADDRESS = 'Patrol@DruidHillsPatrol.org'
+'''
 
 class VPRSync:
     '''This Class handles the data sync between MemberClicks and Wunderlist.
@@ -37,52 +38,78 @@ class VPRSync:
     WunderList task (title, due_date)
     '''
 
-    def __init__(self, auto_mode=False):
+    def __init__(self, auto_mode=False, test_mode=False):
+        self._set_variables(test_mode)
         self.mc = MemberClicks()
-        self.wl = WunderList()
+        self.wl = WunderList(test_mode)
         self._get_credentials()
-        self.mc_requests = None
-        self.wl_tasks = None
-        self.wl_archived_tasks = None
+        if auto_mode:
+            self._auto_mode()
+        
+
+    def _set_variables(self, test_mode):
+        self.requests = None
+        self.tasks = None
+        self.archived_tasks = None
         self.num_requests = 0
         self.num_posted_requests = 0
         self.num_archived_tasks = 0
-        if auto_mode:
-            self._get_mc_requests()
-            self._update_requests_from_file()
-            self.sync_requests()
-            self.sync_with_wl()
-            self.send_member_emails()
-            self._save_requests_to_file()
-            self.sync_archive()
-            self.post_logfile()
+        self.num_emails = 0
+        self.credentials_file = str(Path.cwd().parent / 'creds.json')
+        self.credentials_email_profile = 'MemberClicks_email'
+        self.log_file = str(Path.cwd().parent / 'log.txt')
+        self.requests_file = str(Path.cwd().parent / 'request_list.json')
+        self.email_template_member = str(Path.cwd() / 'self.email_template_member.txt')
+        self.email_template_eod = str(Path.cwd() / 'self.email_template_eod.txt')
+        self.email_address_eod = ['Patrol@DruidHillsPatrol.org','lwedwards3@gmail.com']
+        self.email_address_member = ['lwedwards3@gmail.com']
+        self.test_mode = test_mode
+        if self.test_mode:
+            self.credentials_email_profile = 'MemberClicks_email'
+            self.log_file = str(Path.cwd().parent / 'test_log.txt')
+            self.requests_file = str(Path.cwd().parent / 'test_request_list.json')
+            self.email_template_member = str(Path.cwd() / 'test_email_template_member.txt')
+            self.email_template_eod = str(Path.cwd() / 'test_email_template_eod.txt')
+            self.email_address_eod = ['lwedwards@mindspring.com']
+            self.email_address_member = ['lwedwards@mindspring.com']
+        
+
+    def _auto_mode(self):
+        self.get_mc_requests()
+        self.update_requests_from_file()
+        self.sync_requests()
+        self.sync_with_wl()
+        self.send_member_emails()
+        self.save_requests_to_file()
+        self.sync_archive()
+        self.post_logfile()
 
 
     def _get_credentials(self):
         '''Retrieves email credentials from a json file'''
-        with open(str(CREDENTIALS), 'r') as fp:
+        with open(self.credentials_file, 'r') as fp:
             data = json.load(fp)
-        self.email_host = data[CRED_PROFILE]['email_host']
-        self.email_address = data[CRED_PROFILE]['email_address']
-        self.password = data[CRED_PROFILE]['password']
+        self.email_host = data[self.credentials_email_profile]['email_host']
+        self.email_address = data[self.credentials_email_profile]['email_address']
+        self.password = data[self.credentials_email_profile]['password']
 
 
-    def _get_mc_requests(self):
+    def get_mc_requests(self):
         '''Retrieves open VP requests from Memberclicks'''
-        self.mc_requests = self.mc.get_open_requests()
-        self.num_requests = len(self.mc_requests)
+        self.requests = self.mc.get_open_requests()
+        self.num_requests = len(self.requests)
 
 
-    def _get_wl_tasks(self, archived=False):
+    def get_wl_tasks(self, archived=False):
         '''Retrieves tasks from Wunderlist.  By default, retrieves working tasks,
         but will retrieve archived tasks if archived=True'''
         if not archived:
-            self.wl_tasks = self.wl.get_tasks(list_id=self.wl.list_id)
+            self.tasks = self.wl.get_tasks(list_id=self.wl.list_id)
         else:
-            self.wl_archived_tasks = self.wl.get_tasks(list_id=self.wl.archive_list_id)
+            self.archived_tasks = self.wl.get_tasks(list_id=self.wl.archive_list_id)
 
 
-    def _utc_to_local(self, string_time):
+    def utc_to_local(self, string_time):
         '''string_time is in ISO8601 UTC time
         Returns a string like 2018-07-18 07:15:02 AM
         '''
@@ -93,16 +120,14 @@ class VPRSync:
         return t
 
 
-    def _update_requests_from_file(self):
+    def update_requests_from_file(self):
         print('_update_requests_from_file')
 
-        def get_previous_requests():
-                '''Retrieves the previous request list from a json file'''
-                with open(str(REQUESTS_FILE), 'r') as fp:
-                    self.previous_requests = json.load(fp)
+        # Get previous request list from a json file
+        with open(self.requests_file, 'r') as fp:
+            self.previous_requests = json.load(fp)
 
-        get_previous_requests()
-        for req in self.mc_requests:
+        for req in self.requests:
             for pre in self.previous_requests:
                 if (req['address']==pre['address']) & (req['due_date']==pre['due_date']):
                     req['completed'] = pre['completed']
@@ -113,23 +138,24 @@ class VPRSync:
         print('_sync_with_wl')
 
         def update_request_from_wl(task):
-            for req in self.mc_requests:
+            for req in self.requests:
                 try: 
                     task['due_date']
                 except KeyError:
                     task['due_date']=dt.datetime.now().strftime('%Y-%M-%D')
                 if (task['title'] == req['address']) & (task['due_date'] == req['due_date']):
-                    if not req['completed'] == task['completed']:
-                        req['send_email'] = True
+                    if req['completed'] != task['completed']:
+                        if task['completed']:
+                            req['send_email'] = True
+                        req['completed'] = task['completed']
                     req['task_id'] = task['id']
-                    req['completed'] = task['completed']
-                    print('request updated')
+                    print('request updated', req['address'], req['due_date'])
                     return True
             return False
 
         def create_new_request(task):
             note = self.wl.get_note(task_id=task['id'])
-            self.mc_requests.append({
+            self.requests.append({
                 'address' : task['title'],
                 'due_date' : task['due_date'],
                 'officer_notes' : '' if not note else note,
@@ -149,7 +175,7 @@ class VPRSync:
                         return True
                 return False
 
-            for request in self.mc_requests:
+            for request in self.requests:
                 
                 if not request['task_id']=='':
                     print('task_id:', request['task_id'])
@@ -179,8 +205,8 @@ class VPRSync:
                         request['send_email']=True
                         print('file added')
 
-        self._get_wl_tasks()
-        for task in self.wl_tasks:
+        self.get_wl_tasks()
+        for task in self.tasks:
             if not update_request_from_wl(task):
                 create_new_request(task=task)
         get_assets()
@@ -191,15 +217,15 @@ class VPRSync:
         '''Syncs vacation requests from MemberClicks to WunderList.
         For each active request in MemberClicks, this insures that a 
         task for the current day exists in Wunderlist.'''
-        if not self.mc_requests:
-            self._get_mc_requests()
-        if not self.wl_tasks:
-            self._get_wl_tasks()
+        if not self.requests:
+            self.get_mc_requests()
+        if not self.tasks:
+            self.get_wl_tasks()
         self.num_posted_requests = 0
         
-        tasks_index = [(task['title'],task['due_date']) for task in self.wl_tasks]
+        tasks_index = [(task['title'],task['due_date']) for task in self.tasks]
         
-        for request in self.mc_requests:
+        for request in self.requests:
             if not (request['address'],request['due_date']) in tasks_index:
                 address = request['address']
                 due_date = request['due_date']
@@ -208,13 +234,13 @@ class VPRSync:
                 note = '\n'.join(request['officer_notes'])
                 self.wl.post_new_note(request['task_id'], note)
                 self.num_posted_requests += 1
-        print('Posted: '+str(self.num_posted_requests)+' requests')
+        print('Posted: '+ str(self.num_posted_requests) +' requests')
     
-    def _save_requests_to_file(self):
+    def save_requests_to_file(self):
         '''Dumps the current VP Request from Memberclicks to a json file'''
         print('_save_requests_to_file')
-        with open(str(REQUESTS_FILE), 'w') as fp:
-            json.dump(self.mc_requests, fp)
+        with open(self.requests_file, 'w') as fp:
+            json.dump(self.requests, fp)
 
 
     def sync_archive(self):
@@ -230,14 +256,14 @@ class VPRSync:
             cutoff_date = dt.datetime.now() + dt.timedelta(days=-1)
             self.num_archived_tasks = 0
 
-            if not self.wl_tasks:
-                self._get_wl_tasks()
+            if not self.tasks:
+                self.get_wl_tasks()
                     
             if dt.datetime.now().hour >= 1:
                 completed_tasks = []
                 incomplete_tasks = []
                 scheduled_tasks = []
-                for task in self.wl_tasks:
+                for task in self.tasks:
                     due = dt.datetime.strptime(task['due_date'],date_format)
                     if due <= cutoff_date:
                         print('archive task', task['id'], task['revision'])
@@ -274,7 +300,7 @@ class VPRSync:
                     response += task['title'] + '\n'
                 return response
 
-            with open(str(END_OF_DAY_EMAIL_TEMPLATE), 'r') as fp:
+            with open(self.email_template_eod, 'r') as fp:
                 body = fp.read()
 
             report_date = (dt.datetime.now() + dt.timedelta(days=-1)).strftime('%Y-%m-%d')
@@ -287,7 +313,7 @@ class VPRSync:
                                 incomplete_tasks,
                                 scheduled_tasks)
 
-            self.send_mail(to_addrs=['lwedwards3@gmail.com',END_OF_DAY_EMAIL_ADDRESS], 
+            self.send_mail(to_addrs=self.email_address_eod, 
                             body=msg, 
                             subject='DHP End of Day Vacation Patrol Report')
 
@@ -303,9 +329,10 @@ class VPRSync:
             str_archive = '\tArchived tasks: ' + str(self.num_archived_tasks)
         str_line = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + '\t' + 'Open requests: '\
         + str(self.num_requests) + '\t' + 'Posted requests: '\
-        + str(self.num_posted_requests) + str_archive + '\n'
+        + str(self.num_posted_requests) + '\tEmails sent: '\
+        + str(self.num_emails) + str_archive + '\n'
         print(str_line)
-        with open(str(LOG_FILE), 'a') as f:
+        with open(self.log_file, 'a') as f:
             f.write(str_line)
 
 
@@ -322,6 +349,8 @@ class VPRSync:
         with smtplib.SMTP_SSL(self.email_host, 465) as server:
             server.login(self.email_address, self.password)
             server.send_message(msg)
+        self.num_emails += 1
+
     
     def create_message_body(self, request):
         '''request is a dictionary of data for an individual request.
@@ -329,14 +358,14 @@ class VPRSync:
         with a message template stored on disk.'''
         assets = ''
         for asset in request['assets']:
-            assets = assets + '\t' + self._utc_to_local(asset['created_at']) + '\n'
+            assets = assets + '\t' + self.utc_to_local(asset['created_at']) + '\n'
             assets = assets + '\t' + asset['text'] + '\n\n'
 
         if len(assets) > 1:
             assets = 'Updates:\n\n' + assets
 
         # gets the email template
-        with open(str(MEMBER_EMAIL_TEMPLATE), 'r') as fp:
+        with open(self.email_template_member, 'r') as fp:
             template = fp.read()
 
         return template.format(request['address'],
@@ -348,20 +377,24 @@ class VPRSync:
         '''For each request where send_email = True
         Creates an email document and sends it.'''
         emails = 0
-        for req in self.mc_requests:
+        for req in self.requests:
             if req['send_email']==True:
                 body = self.create_message_body(req)
-
-                self.send_mail(to_addrs=['lwedwards3@gmail.com'], 
+                to_addrs = self.email_address_member.copy()
+                if len(req['email_address']) > 1:
+                    a = 0
+                    #to_addrs.append(req['email_address'])
+                self.send_mail(to_addrs=to_addrs, 
                                 body=body, 
                                 subject='DHP Vacation Patrol Update')
                 emails += 1
-                print('email sent')
+                print('email sent', req['address'], req['due_date'])
         print('sent '+str(emails)+' emails')
+
 
     def debug_request_summary(self):
         print('Requests summary: <address>, <due_date>, <task_id>, <completed>, <assets>, <send_email>')
-        for req in self.mc_requests:
+        for req in self.requests:
             print(req['address'], req['due_date'], req['task_id'], 
                 req['completed'], len(req['assets']), req['send_email'])
             

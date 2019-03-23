@@ -1,20 +1,4 @@
 '''
-================================================================
-Version: DEV
-Date:    2019-03-14
-Name:    Louis Edwards
-Description:
-    Changed assignment of VPRSync.access_token_expires
-    
-================================================================
-Version: 0.1
-Date:    2019-03-13
-Name:    Louis Edwards
-Description:
-    Added task archive process
-    Development on comments and files, but these are not ready for service.
-===============================================================
-
 This project syncs vacation requests from the DHP's MemberClicks account
 with a WunderList task list that is accessible by the patrol officers
 from the shared iPhone.
@@ -35,9 +19,6 @@ import json
 from pathlib import Path
 import wunderpy3
 
-CREDENTIALS = Path.cwd().parent / 'creds.json'
-WUNDERLIST_PROFILE = 'WunderList'
-
 
 class WunderList:
     '''This class access and posts data in WunderList via the WunderList API.  
@@ -47,21 +28,31 @@ class WunderList:
         3. Create new tasks in the DHP Vacation Patrol task list.
         4. Archive expired tasks by moving them to DHP VP Archive list.
     '''
-    def __init__(self):
+    def __init__(self, test_mode=False):
         '''create attributes such as web addresses and authentication,
         a dictionary for storing VP requests'''
+        self._set_variables(test_mode)
         self.api = wunderpy3.WunderApi()
         self._get_credentials()
         self.client = self.api.get_client(self.access_token, self.client_id)
         
+    
+    def _set_variables(self, test_mode):
+        self.credentials_file = str(Path.cwd().parent / 'creds.json')
+        self.wunderlist_profile = 'WunderList'
+        self.test_mode = test_mode
+        if self.test_mode:
+            self.wunderlist_profile = 'WunderList_test'
+            
+
     def _get_credentials(self):
-        with open(str(CREDENTIALS), 'r') as fp:
+        with open(self.credentials_file, 'r') as fp:
             data = json.load(fp)
-        self.client_id = data[WUNDERLIST_PROFILE]['client_id']
-        self.client_secret = data[WUNDERLIST_PROFILE]['client_secret']
-        self.access_token = data[WUNDERLIST_PROFILE]['access_token']
-        self.list_id = int(data[WUNDERLIST_PROFILE]['list_id'])
-        self.archive_list_id = int(data[WUNDERLIST_PROFILE]['archive_list_id'])
+        self.client_id = data[self.wunderlist_profile]['client_id']
+        self.client_secret = data[self.wunderlist_profile]['client_secret']
+        self.access_token = data[self.wunderlist_profile]['access_token']
+        self.list_id = int(data[self.wunderlist_profile]['list_id'])
+        self.archive_list_id = int(data[self.wunderlist_profile]['archive_list_id'])
 
     def get_lists(self):
         '''Retrieves a list of all lists in the DHP Wunderlist account'''

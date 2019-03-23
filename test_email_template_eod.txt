@@ -1,0 +1,10 @@
+End of day DHP Vacation Patrol Report for {}
+
+Completed vacation patrols:
+{}
+
+Incomplete vacation patrols:
+{}
+
+Upcoming patrols:
+{}
