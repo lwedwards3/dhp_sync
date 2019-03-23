@@ -312,22 +312,22 @@ class VPRSync:
     def send_mail(self, to_addrs, body, subject=None):
         if type(to_addrs) == list:
             to_addrs = ','.join(to_addrs)
-        print(to_addrs)
         
         msg = MIMEText(body)
         msg['From'] = 'DHP Vacation Patrol<VacationPatrol@DruidHillsPatrol.org>'
         msg['To'] = to_addrs
         msg['Subject'] = subject
         
-        print('Email to:',to_addrs, subject, body)
-        '''with smtplib.SMTP_SSL(self.email_host, 465) as server:
+        print('Email to:',to_addrs, subject)
+        with smtplib.SMTP_SSL(self.email_host, 465) as server:
             server.login(self.email_address, self.password)
             server.send_message(msg)
-    '''
+    
     def create_message_body(self, request):
         '''request is a dictionary of data for an individual request.
         Creates message body by merging address, date and assets
         with a message template stored on disk.'''
+        assets = ''
         for asset in request['assets']:
             assets = assets + '\t' + self._utc_to_local(asset['created_at']) + '\n'
             assets = assets + '\t' + asset['text'] + '\n\n'
