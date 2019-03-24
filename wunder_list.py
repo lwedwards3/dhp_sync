@@ -118,6 +118,10 @@ class WunderList:
         '''Retrieves files associated with a task'''
         return self.client.get_task_files(task_id)
     
+    def get_file_preview(self, file_id):
+        '''Retrieves a link to a file preview'''
+        return self.client.get_file_preview(file_id)
+    
     def archive_task(self, task_id, revision=None):
         '''Moves the selected task to the archive list.'''
         if not revision:

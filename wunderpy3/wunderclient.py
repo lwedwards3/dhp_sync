@@ -10,7 +10,6 @@ from . import subtasks_endpoint
 from . import positions_endpoints
 from . import task_comments_endpoint
 from . import files_endpoint
-from . import files_preview_endpoint
 
 
 class WunderClient:
@@ -170,7 +169,7 @@ class WunderClient:
 
     def get_file_preview(self, file_id):
         '''Causes a file preview to be created.  Retrieves a link to the preview'''
-        return files_preview_endpoint(self, file_id) 
+        return files_endpoint.get_file_preview(self, file_id) 
         
     def get_task_subtasks(self, task_id, completed=False):
         ''' Gets subtasks for task with given ID '''

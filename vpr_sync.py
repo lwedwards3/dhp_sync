@@ -63,6 +63,7 @@ class VPRSync:
         self.email_template_eod = str(Path.cwd() / 'email_template_eod.txt')
         self.email_address_eod = ['Patrol@DruidHillsPatrol.org','lwedwards3@gmail.com']
         self.email_address_member = ['lwedwards3@gmail.com']
+        self.email_members_flag = False
         self.test_mode = test_mode
         if self.test_mode:
             self.credentials_email_profile = 'MemberClicks_email'
@@ -72,11 +73,11 @@ class VPRSync:
             self.email_template_eod = str(Path.cwd() / 'test_email_template_eod.txt')
             self.email_address_eod = ['lwedwards@mindspring.com']
             self.email_address_member = ['lwedwards@mindspring.com']
+            self.email_members_flag = False
         
 
     def _auto_mode(self):
         self.get_mc_requests()
-        self.update_requests_from_file()
         self.sync_requests()
         self.sync_with_wl()
         self.send_member_emails()
@@ -95,9 +96,23 @@ class VPRSync:
 
 
     def get_mc_requests(self):
-        '''Retrieves open VP requests from Memberclicks'''
+        '''Retrieves open VP requests from Memberclicks.  
+        Adds these to request list.
+        The retrieves request info from json file'''
         self.requests = self.mc.get_open_requests()
         self.num_requests = len(self.requests)
+
+        print('_update_requests_from_file')
+        # Get previous request list from a json file
+        with open(self.requests_file, 'r') as fp:
+            self.previous_requests = json.load(fp)
+
+        for req in self.requests:
+            for pre in self.previous_requests:
+                if (req['address']==pre['address']) & (req['due_date']==pre['due_date']):
+                    req['completed'] = pre['completed']
+                    req['assets'] = pre['assets']
+                    req['send_email'] = pre['send_email']
 
 
     def get_wl_tasks(self, archived=False):
@@ -120,29 +135,22 @@ class VPRSync:
         return t
 
 
-    def update_requests_from_file(self):
-        print('_update_requests_from_file')
+    def add_task_attribute(self, task_id, key, value):
+        print('add attribute', task_id, key, value)
+        for task in self.tasks:
+            if task['id']==task_id:
+                task[key]=value
 
-        # Get previous request list from a json file
-        with open(self.requests_file, 'r') as fp:
-            self.previous_requests = json.load(fp)
-
-        for req in self.requests:
-            for pre in self.previous_requests:
-                if (req['address']==pre['address']) & (req['due_date']==pre['due_date']):
-                    req['completed'] = pre['completed']
-                    req['assets'] = pre['assets']
-                
 
     def sync_with_wl(self):
         print('_sync_with_wl')
 
         def update_request_from_wl(task):
+            '''task is a wunderlist task
+            If task has no due_date, it assigns today as due_date
+            Updates request with info from the task.
+            Returns True if task was found in requests, otherwise False.''' 
             for req in self.requests:
-                try: 
-                    task['due_date']
-                except KeyError:
-                    task['due_date']=dt.datetime.now().strftime('%Y-%M-%D')
                 if (task['title'] == req['address']) & (task['due_date'] == req['due_date']):
                     if req['completed'] != task['completed']:
                         if task['completed']:
@@ -154,17 +162,18 @@ class VPRSync:
             return False
 
         def create_new_request(task):
+            '''if a task was manually added to WL, this will add it to the requests list'''
             note = self.wl.get_note(task_id=task['id'])
             self.requests.append({
                 'address' : task['title'],
                 'due_date' : task['due_date'],
-                'officer_notes' : '' if not note else note,
                 'member_name' : '',
                 'email_address' : '',
                 'task_id' : task['id'],
                 'completed' : task['completed'],
                 'assets' : [],
-                'send_email' : task['completed']
+                'send_email' : task['completed'],
+                'officer_notes' : '' if not note else note
             })
             print('request added')
 
@@ -175,11 +184,12 @@ class VPRSync:
                         return True
                 return False
 
-            for request in self.requests:
-                
+            for request in self.requests:               
                 if not request['task_id']=='':
                     print('task_id:', request['task_id'])
                     comments = self.wl.get_task_comments(task_id=request['task_id'])
+                    # add num_comments to self.tasks
+                    self.add_task_attribute(request['task_id'], 'num_comments', len(comments))
                     print('comments:',comments)
                     for comment in comments:
                         if not asset_exists(comment['id'], request['assets']):
@@ -189,11 +199,13 @@ class VPRSync:
                                 'text' : comment['text'],
                                 'type' : 'comment'
                             })
-                            request['send_email']=True
+                            request['send_email']=True # Flag to email new comment
                             print('comment added')
 
                 print('about to get files',request['task_id'],request['address'])
                 files = self.wl.get_task_files(task_id=request['task_id'])
+                # Add number of files to self.tasks
+                self.add_task_attribute(request['task_id'], 'num_files', len(files))
                 for file in files:
                     if not asset_exists(file['id'], request['assets']):
                         request['assets'].append({
@@ -202,13 +214,18 @@ class VPRSync:
                             'text' : file['url'],
                             'type' : 'file'
                         })
-                        request['send_email']=True
+                        request['send_email']=True # Flag to email new file
                         print('file added')
 
         self.get_wl_tasks()
         for task in self.tasks:
+            try: 
+                task['due_date']
+            except KeyError:
+                task['due_date']=(dt.datetime.now()+ dt.timedelta(hour=1)).strftime('%Y-%m-%d')
             if not update_request_from_wl(task):
                 create_new_request(task=task)
+
         get_assets()
         print('Sync with WL complete')
 
@@ -297,7 +314,14 @@ class VPRSync:
                     return 'None'
                 response = ''
                 for task in task_list:
-                    response += task['title'] +'\t' + task['due_date'] + '\n'
+                    response += task['title'] + '\t'
+                    if 'num_comments' in task.keys():
+                        if task['num_comments'] >0:
+                            response += 'C' + str(task['num_comments']) + ' '
+                    if 'num_files' in task.keys():
+                        if task['num_files'] >0:
+                            response += 'F' + str(task['num_files'])
+                    response += '\n'
                 return response
 
             with open(self.email_template_eod, 'r') as fp:
@@ -386,13 +410,15 @@ class VPRSync:
             if req['send_email']==True:
                 body = self.create_message_body(req)
                 to_addrs = self.email_address_member.copy()
-                if len(req['email_address']) > 1:
-                    a = 0
-                    #to_addrs.append(req['email_address'])
+                if self.email_members_flag:
+                    if len(req['email_address']) > 1:
+                        to_addrs.append(req['email_address'])
+                
                 self.send_mail(to_addrs=to_addrs, 
                                 body=body, 
                                 subject='DHP Vacation Patrol Update')
                 emails += 1
+                req['send_email'] = False
                 print('email sent', req['address'], req['due_date'])
         print('sent '+str(emails)+' emails')
 
