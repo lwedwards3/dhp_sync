@@ -25,6 +25,7 @@ class WunderApi:
                 SUBTASK_POSITIONS = "subtask_positions"
                 TASK_COMMENTS = 'task_comments'
                 FILES = 'files'
+                FILE_PREVIEW = 'previews'
 
             self.DATE_FORMAT = '%Y-%m-%d'
             self.DATETIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
