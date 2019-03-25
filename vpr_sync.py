@@ -127,7 +127,7 @@ class VPRSync:
                 if (req['address']==pre['address']) & (req['due_date']==pre['due_date']):
                     req['completed'] = pre['completed']
                     req['assets'] = pre['assets']
-                    req['send_email'] = pre['send_email']
+                    req['send_email'] = False
                     if 'source' in pre.keys():
                         req['source'] = pre['source']
 
@@ -172,7 +172,7 @@ class VPRSync:
             
             if not self._update_requests_with_wl_info(task=task):
                 self._create_request_for_manual_task(task=task)
-            self._get_task_assets(task)
+            #self._get_task_assets(task)
 
 
     def _update_requests_with_wl_info(self, task):
@@ -207,7 +207,7 @@ class VPRSync:
                 return True
         return False
 
-    def _create_request_for_manual_tasks(self.task):
+    def _create_request_for_manual_task(self, task):
             '''if a task was manually added to WL, this will add it to the requests list'''
             note = self.wl.get_note(task_id=task['id'])
             self.requests.append({
@@ -219,7 +219,7 @@ class VPRSync:
                 'completed' : task['completed'],
                 'assets' : [],
                 'send_email' : task['completed'],
-                'source' : 'wunderlist'
+                'source' : 'wunderlist',
                 'officer_notes' : '' if not note else note
             })
             print('manual request added')
