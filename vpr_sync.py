@@ -1,3 +1,16 @@
+'''
+======================= TO DO ==================================
+
+Tag all request with their source (memberclicks or wunderlist)
+- Alter get_mc_requests (source: 'memberclicks')
+- Alter sync_with_wl (wl not in mc - soruce: 'wunderlist')
+- Alter sync
+
+
+================================================================
+'''
+
+
 import datetime as dt
 import dateutil.parser
 import dateutil.tz
@@ -23,8 +36,11 @@ class VPRSync:
     
     1. DONE Retrieve open requests from MemberClicks
     2. DONE Update each request with data saved in previous request_list (status, assets)
-    3. Retrieve tasks from Wunderlist 
+    3. DONE Retrieve tasks from Wunderlist 
     4. Sync with Wunderlist:
+        a. Add new requests to WL 
+        b. Update requests with info from tasks (send_mail if status changed to complete.)
+        c. Add manually-added tasks to requests
         Match existing tasks to requests and look for:
             Change in status (send email if changed to completed)
             New assets not listed in the file.  (Send email if new assets found)
@@ -55,6 +71,7 @@ class VPRSync:
         self.num_posted_requests = 0
         self.num_archived_tasks = 0
         self.num_emails = 0
+        self.date_format = '%Y-%m-%d'
         self.credentials_file = str(Path.cwd().parent / 'creds.json')
         self.credentials_email_profile = 'MemberClicks_email'
         self.log_file = str(Path.cwd().parent / 'log.txt')
@@ -77,45 +94,38 @@ class VPRSync:
         
 
     def _auto_mode(self):
-        self.get_mc_requests()
+        self._get_mc_requests()
         self.sync_requests()
         self.sync_with_wl()
         self.send_member_emails()
-        self.save_requests_to_file()
+        self._save_requests_to_file()
         self.sync_archive()
         self.post_logfile()
 
 
-    def _get_credentials(self):
-        '''Retrieves email credentials from a json file'''
-        with open(self.credentials_file, 'r') as fp:
-            data = json.load(fp)
-        self.email_host = data[self.credentials_email_profile]['email_host']
-        self.email_address = data[self.credentials_email_profile]['email_address']
-        self.password = data[self.credentials_email_profile]['password']
-
-
-    def get_mc_requests(self):
-        '''Retrieves open VP requests from Memberclicks.  
-        Adds these to request list.
-        The retrieves request info from json file'''
+    def _get_mc_requests(self):
+        '''Retrieves open VP requests from Memberclicks and 
+        adds these to request list.
+        Then updates requests with info from json file'''
+        print('_get_mc_requests')
         self.requests = self.mc.get_open_requests()
         self.num_requests = len(self.requests)
 
-        print('_update_requests_from_file')
         # Get previous request list from a json file
         with open(self.requests_file, 'r') as fp:
             self.previous_requests = json.load(fp)
-
         for req in self.requests:
+            req['source'] = 'memberclicks'
             for pre in self.previous_requests:
                 if (req['address']==pre['address']) & (req['due_date']==pre['due_date']):
                     req['completed'] = pre['completed']
                     req['assets'] = pre['assets']
                     req['send_email'] = pre['send_email']
+                    if 'source' in pre.keys():
+                        req['source'] = pre['source']
 
 
-    def get_wl_tasks(self, archived=False):
+    def _get_wl_tasks(self, archived=False):
         '''Retrieves tasks from Wunderlist.  By default, retrieves working tasks,
         but will retrieve archived tasks if archived=True'''
         if not archived:
@@ -124,44 +134,50 @@ class VPRSync:
             self.archived_tasks = self.wl.get_tasks(list_id=self.wl.archive_list_id)
 
 
-    def utc_to_local(self, string_time):
-        '''string_time is in ISO8601 UTC time
-        Returns a string like 2018-07-18 07:15:02 AM
-        '''
-        t = dateutil.parser.parse(string_time)
-        t = t.replace(tzinfo=dateutil.tz.tzutc())
-        t = t.astimezone(dateutil.tz.tzlocal())
-        t = t.strftime('%Y-%m-%d %r')
-        return t
-
-
-    def add_task_attribute(self, task_id, key, value):
-        print('add attribute', task_id, key, value)
-        for task in self.tasks:
-            if task['id']==task_id:
-                task[key]=value
-
-
     def sync_with_wl(self):
+        ''' 
+        1. Create tasks from new requests
+        2. Update requests with task info
+        3. Del WL if no MC
+        '''
         print('_sync_with_wl')
+        if not self.requests:
+            self._get_mc_requests()
+        if not self.tasks:
+            self._get_wl_tasks()
+        
+        self._create_tasks_for_new_requests()
 
-        def update_request_from_wl(task):
-            '''task is a wunderlist task
-            If task has no due_date, it assigns today as due_date
-            Updates request with info from the task.
-            Returns True if task was found in requests, otherwise False.''' 
-            for req in self.requests:
-                if (task['title'] == req['address']) & (task['due_date'] == req['due_date']):
-                    if req['completed'] != task['completed']:
-                        if task['completed']:
-                            req['send_email'] = True
-                        req['completed'] = task['completed']
-                    req['task_id'] = task['id']
-                    print('request updated', req['address'], req['due_date'])
-                    return True
-            return False
+        for task in self.tasks:
+            try: 
+                task['due_date']
+            except KeyError:
+                task['due_date']=(dt.datetime.now()+ dt.timedelta(hour=1)).strftime(date_format)
+            if not self._update_requests_with_wl_info(task=task):
+                self._create_request_from_task(task=task)
+            self._get_task_assets(task)
 
-        def create_new_request(task):
+        self._get_wl_assets()
+        print('Sync with WL complete')
+
+
+    def _update_requests_with_wl_info(self, task):
+        '''task is a wunderlist task
+        If task has no due_date, it assigns today as due_date
+        Updates request with info from the task.
+        Returns True if task was found in requests, otherwise False.''' 
+        for req in self.requests:
+            if (task['title'] == req['address']) & (task['due_date'] == req['due_date']):
+                if req['completed'] != task['completed']:
+                    if task['completed']:
+                        req['send_email'] = True
+                    req['completed'] = task['completed']
+                req['task_id'] = task['id']
+                print('request updated', req['address'], req['due_date'])
+                return True
+        return False
+
+    def _create_request_from_task(self.task):
             '''if a task was manually added to WL, this will add it to the requests list'''
             note = self.wl.get_note(task_id=task['id'])
             self.requests.append({
@@ -176,68 +192,16 @@ class VPRSync:
                 'officer_notes' : '' if not note else note
             })
             print('request added')
-
-        def get_assets():
-            def asset_exists(asset_id, assets):
-                for asset in assets:
-                    if asset['id'] == asset_id:
-                        return True
-                return False
-
-            for request in self.requests:               
-                if not request['task_id']=='':
-                    print('task_id:', request['task_id'])
-                    comments = self.wl.get_task_comments(task_id=request['task_id'])
-                    # add num_comments to self.tasks
-                    self.add_task_attribute(request['task_id'], 'num_comments', len(comments))
-                    print('comments:',comments)
-                    for comment in comments:
-                        if not asset_exists(comment['id'], request['assets']):
-                            request['assets'].append({
-                                'id' : comment['id'],
-                                'created_at' : comment['created_at'],
-                                'text' : comment['text'],
-                                'type' : 'comment'
-                            })
-                            request['send_email']=True # Flag to email new comment
-                            print('comment added')
-
-                print('about to get files',request['task_id'],request['address'])
-                files = self.wl.get_task_files(task_id=request['task_id'])
-                # Add number of files to self.tasks
-                self.add_task_attribute(request['task_id'], 'num_files', len(files))
-                for file in files:
-                    if not asset_exists(file['id'], request['assets']):
-                        request['assets'].append({
-                            'id' : file['id'],
-                            'created_at' : file['created_at'],
-                            'text' : file['url'],
-                            'type' : 'file'
-                        })
-                        request['send_email']=True # Flag to email new file
-                        print('file added')
-
-        self.get_wl_tasks()
-        for task in self.tasks:
-            try: 
-                task['due_date']
-            except KeyError:
-                task['due_date']=(dt.datetime.now()+ dt.timedelta(hour=1)).strftime('%Y-%m-%d')
-            if not update_request_from_wl(task):
-                create_new_request(task=task)
-
-        get_assets()
-        print('Sync with WL complete')
-
-
-    def sync_requests(self):
+    
+    
+    def _create_tasks_for_new_requests(self):
         '''Syncs vacation requests from MemberClicks to WunderList.
         For each active request in MemberClicks, this insures that a 
         task for the current day exists in Wunderlist.'''
         if not self.requests:
-            self.get_mc_requests()
+            self._get_mc_requests()
         if not self.tasks:
-            self.get_wl_tasks()
+            self._get_wl_tasks()
         self.num_posted_requests = 0
         
         tasks_index = [(task['title'],task['due_date']) for task in self.tasks]
@@ -253,11 +217,60 @@ class VPRSync:
                 self.num_posted_requests += 1
         print('Posted: '+ str(self.num_posted_requests) +' requests')
     
-    def save_requests_to_file(self):
+
+    def _save_requests_to_file(self):
         '''Dumps the current VP Request from Memberclicks to a json file'''
         print('_save_requests_to_file')
         with open(self.requests_file, 'w') as fp:
             json.dump(self.requests, fp)
+
+    def _find_request(self, task):
+        response = None
+        for request in self.requests:
+            if (request['addresss']==task['title']) & (request['due_date']==task['due_date']):
+                response = request['task_id']
+        return response
+
+
+    def _get_wl_assets(self):
+        def asset_is_new(asset_id, assets):
+            for asset in assets:
+                if asset['id'] == asset_id:
+                    return False
+            return True
+
+        for request in self.requests:               
+            if not request['task_id']=='':
+                print('task_id:', request['task_id'])
+                comments = self.wl.get_task_comments(task_id=request['task_id'])
+                # add num_comments to self.tasks
+                self._add_task_attribute(request['task_id'], 'num_comments', len(comments))
+                print('comments:',comments)
+                for comment in comments:
+                    if asset_is_new(comment['id'], request['assets']):
+                        request['assets'].append({
+                            'id' : comment['id'],
+                            'created_at' : comment['created_at'],
+                            'text' : comment['text'],
+                            'type' : 'comment'
+                        })
+                        request['send_email']=True # Flag to email new comment
+                        print('comment added')
+
+            print('about to get files',request['task_id'],request['address'])
+            files = self.wl.get_task_files(task_id=request['task_id'])
+            # Add number of files to self.tasks
+            self._add_task_attribute(request['task_id'], 'num_files', len(files))
+            for file in files:
+                if not asset_is_new(file['id'], request['assets']):
+                    request['assets'].append({
+                        'id' : file['id'],
+                        'created_at' : file['created_at'],
+                        'text' : file['url'],
+                        'type' : 'file'
+                    })
+                    request['send_email']=True # Flag to email new file
+                    print('file added')
 
 
     def sync_archive(self):
@@ -269,19 +282,18 @@ class VPRSync:
 
         def archive_tasks():
             print('archive_tasks')
-            date_format = '%Y-%m-%d'
             cutoff_date = dt.datetime.now() + dt.timedelta(days=-1)
             self.num_archived_tasks = 0
 
             if not self.tasks:
-                self.get_wl_tasks()
+                self._get_wl_tasks()
                     
             if dt.datetime.now().hour >= 1:
                 completed_tasks = []
                 incomplete_tasks = []
                 scheduled_tasks = []
                 for task in self.tasks:
-                    due = dt.datetime.strptime(task['due_date'],date_format)
+                    due = dt.datetime.strptime(task['due_date'],self.date_format)
                     if due <= cutoff_date:
                         print('archive task:', task['id'], task['revision'])
 
@@ -329,10 +341,10 @@ class VPRSync:
             
             '''scheduled_tasks = []
             for tsk in classified_tasks[2]:
-                if tsk['due_date'] == dt.datetime.now().strftime('%Y-%m-%d'):
+                if tsk['due_date'] == dt.datetime.now().strftime(date_format):
                     scheduled_tasks.append(tsk)
             '''
-            report_date = (dt.datetime.now() + dt.timedelta(days=-1)).strftime('%Y-%m-%d')
+            report_date = (dt.datetime.now() + dt.timedelta(days=-1)).strftime(date_format)
             completed_tasks = list_to_string(classified_tasks[0])
             incomplete_tasks = list_to_string(classified_tasks[1])
             scheduled_tasks = list_to_string(classified_tasks[2])
@@ -387,7 +399,7 @@ class VPRSync:
         with a message template stored on disk.'''
         assets = ''
         for asset in request['assets']:
-            assets = assets + '\t' + self.utc_to_local(asset['created_at']) + '\n'
+            assets = assets + '\t' + self._utc_to_local(asset['created_at']) + '\n'
             assets = assets + '\t' + asset['text'] + '\n\n'
 
         if len(assets) > 1:
@@ -421,6 +433,33 @@ class VPRSync:
                 req['send_email'] = False
                 print('email sent', req['address'], req['due_date'])
         print('sent '+str(emails)+' emails')
+
+
+    def _utc_to_local(self, string_time):
+        '''string_time is in ISO8601 UTC time
+        Returns a string like 2018-07-18 07:15:02 AM
+        '''
+        t = dateutil.parser.parse(string_time)
+        t = t.replace(tzinfo=dateutil.tz.tzutc())
+        t = t.astimezone(dateutil.tz.tzlocal())
+        t = t.strftime('%Y-%m-%d %r')
+        return t
+
+    def _add_task_attribute(self, task_id, key, value):
+        print('add attribute', task_id, key, value)
+        for task in self.tasks:
+            if task['id']==task_id:
+                task[key]=value
+
+
+    def _get_credentials(self):
+        '''Retrieves email credentials from a json file'''
+        with open(self.credentials_file, 'r') as fp:
+            data = json.load(fp)
+        self.email_host = data[self.credentials_email_profile]['email_host']
+        self.email_address = data[self.credentials_email_profile]['email_address']
+        self.password = data[self.credentials_email_profile]['password']
+
 
 
     def debug_request_summary(self):
