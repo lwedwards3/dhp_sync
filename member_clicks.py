@@ -1,34 +1,38 @@
-'''
-================================================================
-Version: DEV
-Date:    2019-03-14
-Name:    Louis Edwards
-Description:
-    Changed assignment of VPRSync.access_token_expires
-    
-================================================================
-Version: 0.1
-Date:    2019-03-13
-Name:    Louis Edwards
-Description:
-    Added task archive process
-    Development on comments and files, but these are not ready for service.
-===============================================================
+'''Methods:
 
-This project syncs vacation requests from the DHP's MemberClicks account
-with a WunderList task list that is accessible by the patrol officers
-from the shared iPhone.
+================= TO DO ======================================================
+Merge _parse_request_profiles and _parse_officer_notes.  This should be a single function
 
-It contains three classes:
-    
-MemberClicks: Provides a method to obtain current vacation request data.
+create get_matchine_addresses
 
-WunderList: Provides methods to:
-    1. Obtain current tasks (both open and closed)
-    2. Create new tasks, and add Notes to a task.
-    
-VPRSync: Syncronizes WunderList with MemberClicks.  At present, this goes in
-one direction: New requests from MemberClicks are added to WunderList
+create get_all_profiles
+
+create get_member_profile
+===============================================================================
+
+1. get_open_requests()
+    Returns profiles containing current vacation patrol requests.
+
+2. get_matching_addresses(address)
+    Returns profiles matching the provided address.
+
+3. get_all_profiles()
+    Returns all active profiles.
+
+4. get_member_profile(member_id)
+
+Supporting methods
+    DONE __init__
+    DONE _get_credentials
+    DONE _create_session
+    DONE _get_access_token
+    DONE _get_search_id
+    DONE _return_search_results
+    DONE _request_json
+    DONE _parse_officer_note
+    ? _format_response
+    ? _save_as_json
+
 '''
 
 import datetime as dt
@@ -49,17 +53,23 @@ class MemberClicks:
     New requests are added at 11:00 pm the previous evening.
     '''
     def __init__(self):
+        self._set_variables()
+        self._get_credentials()
+        self._create_session()
+
+    def _set_variables(self):
         self.access_token=None
         self.access_token_expires = dt.datetime.now() + dt.timedelta(days=-10)
         self.mc_date_format = "%m/%d/%Y"  # Memberclicks date format
-        self.profile_search_id=None
         self.request_cutoff_hour = 23
-        self.vp_request_profiles=[]
+        self.profiles=[]
         self.vp_requests=[]
         self.wl_date_format = "%Y-%m-%d"  # WunderList date format
-        self._get_credentials()
-        self._create_session()
-        
+        current_hour = dt.datetime.now().hour
+        self.patrol_date = dt.datetime.now().date() + dt.timedelta(current_hour \
+                                     >= self.request_cutoff_hour)
+
+
     def _get_credentials(self):
         '''Obtains client credentials saved in a json file.'''
         with open(str(CREDENTIALS), 'r') as fp:
@@ -88,40 +98,73 @@ class MemberClicks:
             self.access_token = token['access_token']
             self.access_token_expires = token['expires_at']
             print('Access token obtained.')
-    
-    def _get_json(self, end_point):
+
+
+    def _request_json(self, end_point):
         '''Makes a request to memberclicks api and converts the response to json'''
         self._get_access_token()
         url = self.url + end_point
         return self.session.get(url=url).json()
 
-    def profiles_to_json(self):
-        profiles = []
-        for profile in self.vp_request_profiles:
-            profiles.append({'profile_id' : profile['[Profile ID]'],
-                             'address' : profile['[Address | Primary | Line 1]'] \
-                             + ' ' + profile['[Address | Primary | Line 2]'],
-                             'contact_name' : profile['[Contact Name]'],
-                             'email_primary' : profile['[Email | Primary]'],
-                             'phone_primary' : profile['[Phone | Primary]'],
-                             'phone_cell' : profile['[Phone | Cell]'],
-                             'vp_request_alias' : profile['Vacation Patrol Request Alias'],
-                             'vp_departure_date' : profile['Vacation Patrol Request Departure Date'],
-                             'vp_departure_time' : profile['Vacation Patrol Request Departure Time'],
-                             'vp_return_date' : profile['Vacation Patrol Request Return Date'],
-                             'vp_return_time' : profile['Vacation Patrol Request Return Time'],
-                             'vp_notes' : profile['Vacation Patrol Request Departure Date'],
-                             'status' : 'Active', 
-                             'wl_task_ids' : []})
-        with open('vacation_patrol_requests.json', 'w') as fp:
-            json.dump(profiles, fp)
-            
 
-    def _get_patrol_date(self):
-        current_hour = dt.datetime.now().hour
-        patrol_date = dt.datetime.now().date() + dt.timedelta(current_hour \
-                                     >= self.request_cutoff_hour)
-        return patrol_date
+    def _get_search_id(self, member_address=None):
+        '''Returns a query search id.  
+        If member_address is provided, it searches for matching addresses.  
+        Otherwise, searches for open vacation patrol requests.'''
+        print('_get_search_id')
+
+        mc_patrol_date = self.patrol_date.strftime(self.mc_date_format)
+
+        if not member_address:
+            filter_def = {'Vacation Patrol Request Departure Date': \
+                    {"startDate": "01/01/2019", "endDate": mc_patrol_date},
+                    'Vacation Patrol Request Return Date': \
+                    {"startDate": mc_patrol_date, "endDate": "12/31/2030"}}
+        else:
+            filter_def = {'[Address | Primary | Line 1]' : member_address}
+
+        self._get_access_token()
+        url = self.url + '/api/v1/profile/search'
+        response = self.session.post(url=url, json=filter_def)
+        return response.json()['id']
+
+
+    def _retrieve_search_results(self, search_id):
+        '''Using a previously obtained search_id,
+        returns a list containing all profiles returned by the search.'''
+        print('retrieve_results')
+        url = self.url + '/api/v1/profile?searchId=' + search_id
+        profiles = []
+        while True:
+            response = self.session.get(url=url).json()
+            for profile in response['profiles']:
+                profiles.append(profile)
+            if not response['nextPageUrl']:
+                break
+            url = response['nextPageUrl']
+        return profiles
+    
+
+    def _parse_request_profiles(self):
+        vp_requests=[]
+        for profile in self.profiles:
+            request={}
+            address = profile['[Address | Primary | Line 1]'] \
+            + ' ' + profile['[Address | Primary | Line 2]']
+            address = address.strip()
+            request['address'] = address
+            request['due_date'] = self.patrol_date.strftime(self.wl_date_format)
+            request['task_id'] = ''
+            request['completed'] = False
+            request['assets'] = []
+            request['send_email']=False
+            request['member_name'] = profile['[Contact Name]']
+            request['email_address'] = profile['[Email | Primary]']
+            request['officer_notes'] = self.profile_info(profile)
+            
+            vp_requests.append(request)
+        print('requests',len(vp_requests))
+        return vp_requests
 
 
     def get_open_requests(self, patrol_date=None):
@@ -136,61 +179,14 @@ class MemberClicks:
         but the method returns parsed results which are pre-processed for
         the sync process.
         '''
-        patrol_date = self._get_patrol_date() if not patrol_date else patrol_date
-            
-        def create_search_id(patrol_date):
-            print('create search')
-            self._get_access_token()
-            mc_patrol_date = patrol_date.strftime(self.mc_date_format)
-            url = self.url + '/api/v1/profile/search'
-            filter_def = {'Vacation Patrol Request Departure Date': \
-                    {"startDate": "01/01/2019", "endDate": mc_patrol_date},
-                   'Vacation Patrol Request Return Date': \
-                   {"startDate": mc_patrol_date, "endDate": "12/31/2030"}}
-            response = self.session.post(url=url, json=filter_def)
-            return response.json()['id']
-        
-        def retrieve_results(search_id):
-            print('retrieve_results')
-            url = self.url + '/api/v1/profile?searchId=' + search_id
-            self.vp_request_profiles = []
-            while True:
-                response = self.session.get(url=url).json()
-                for profile in response['profiles']:
-                    self.vp_request_profiles.append(profile)
-                if not response['nextPageUrl']:
-                    break
-                url = response['nextPageUrl']
-        
-        def parse_vp_request_profiles():
-            vp_requests=[]
-            for profile in self.vp_request_profiles:
-                request={}
-                address = profile['[Address | Primary | Line 1]'] \
-                + ' ' + profile['[Address | Primary | Line 2]']
-                address = address.strip()
-                request['address'] = address
-                request['due_date'] = patrol_date.strftime(self.wl_date_format)
-                request['task_id'] = ''
-                request['completed'] = False
-                request['assets'] = []
-                request['send_email']=False
-                request['member_name'] = profile['[Contact Name]']
-                request['email_address'] = profile['[Email | Primary]']
-                request['officer_notes'] = self.profile_info(profile)
-                
-                vp_requests.append(request)
-            print('requests',len(vp_requests))
-            return vp_requests
-
-        search_id = create_search_id(patrol_date)
-        retrieve_results(search_id)
+        search_id = self._get_search_id()
+        self.profiles = retrieve_results(search_id)
         return parse_vp_request_profiles()
         
     ### Extra methods for retrieving master data, etc #########################
     def get_attributes(self, print_to_file=False):
         end_point = '/api/v1/attribute'
-        attributes = self._get_json(end_point=end_point)
+        attributes = self._request_json(end_point=end_point)
         if print_to_file:
             with open('dhp_attributes.json', 'w') as outfile:
                 json.dump(attributes, outfile)
@@ -198,25 +194,25 @@ class MemberClicks:
     
     def get_profiles(self):
         end_point = '/api/v1/profile'
-        return self._get_json(end_point=end_point)
+        return self._request_json(end_point=end_point)
     
     def get_groups(self):
         end_point = '/api/v1/group'
-        return self._get_json(end_point=end_point)
+        return self._request_json(end_point=end_point)
         
     def get_countries(self):
         end_point = '/api/v1/country'
-        return self._get_json(end_point=end_point)
+        return self._request_json(end_point=end_point)
 
     def get_member_statuses(self):
         end_point = '/api/v1/member-status'
-        return self._get_json(end_point=end_point)
+        return self._request_json(end_point=end_point)
 
     def get_member_types(self):
         end_point = '/api/v1/member-type'
-        return self._get_json(end_point=end_point)
+        return self._request_json(end_point=end_point)
 
-    def profile_info(self, profile):
+    def _parse_officer_note(self, profile):
         attrs = (('Vacation Patrol Request Special Notes to Officer', 'VP Note'),
                 ('Vacation Patrol Request Departure Date', 'Depart date'),
                 ('Vacation Patrol Request Departure Time', 'Depart time'),
@@ -251,7 +247,7 @@ class MemberClicks:
                 ('Emergency Contact 2 - Phone Number', 'Emg contact2 ph'),
                 ('Emergency Contact 2 - Relationship', 'Emg contact 2 rel'),
                 ('Jurisdiction - Police', 'Jurisdiction'))
-        note = [profile['Vacation Patrol Request Special Notes to Officer'],
+        officer_note = [profile['Vacation Patrol Request Special Notes to Officer'],
                     '-----------------------------------',
                     'Departs: '+ profile['Vacation Patrol Request Departure Date'] \
                      + ' ' + profile['Vacation Patrol Request Departure Time'], 
@@ -260,7 +256,38 @@ class MemberClicks:
         for attr in attrs[6:]:
             val = profile[attr[0]]
             if len(str(val)) > 0:
-                note.append(str(attr[1]) + ': ' + str(val))
-                note.append('')
-        return note
+                officer_note.append(str(attr[1]) + ': ' + str(val))
+                officer_note.append('')
+        return officer_note
+
+
+
+
+
+
+
+
+
+
+    '''def profiles_to_json(self):
+        profiles = []
+        for profile in self.profiles:
+            profiles.append({'profile_id' : profile['[Profile ID]'],
+                             'address' : profile['[Address | Primary | Line 1]'] \
+                             + ' ' + profile['[Address | Primary | Line 2]'],
+                             'contact_name' : profile['[Contact Name]'],
+                             'email_primary' : profile['[Email | Primary]'],
+                             'phone_primary' : profile['[Phone | Primary]'],
+                             'phone_cell' : profile['[Phone | Cell]'],
+                             'vp_request_alias' : profile['Vacation Patrol Request Alias'],
+                             'vp_departure_date' : profile['Vacation Patrol Request Departure Date'],
+                             'vp_departure_time' : profile['Vacation Patrol Request Departure Time'],
+                             'vp_return_date' : profile['Vacation Patrol Request Return Date'],
+                             'vp_return_time' : profile['Vacation Patrol Request Return Time'],
+                             'vp_notes' : profile['Vacation Patrol Request Departure Date'],
+                             'status' : 'Active', 
+                             'wl_task_ids' : []})
+        with open('vacation_patrol_requests.json', 'w') as fp:
+            json.dump(profiles, fp)'''
+
 
