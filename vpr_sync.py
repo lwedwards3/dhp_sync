@@ -190,14 +190,8 @@ class VPRSync:
                 print('request updated', req['address'], req['due_date'])
                 return True
         
-        # if not found in requests, then try previous requests.  May have been manually added.
         for req in self.previous_requests:
             if task['id'] == req['task_id']:
-                # delete task if source = memberclicks.  Request was cancelled.
-                if req['source'] == 'memberclicks':
-                    self.wl.delete_task(task['id'])
-                    print('Deleted ' + wl['address'])
-                    return True
                 if req['completed'] != task['completed']:
                     if task['completed']:
                         req['send_email'] = True
