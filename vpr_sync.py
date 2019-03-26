@@ -186,18 +186,35 @@ class VPRSync:
     def _create_request_for_manual_task(self, task):
             '''if a task was manually added to WL, this will add it to the requests list'''
             note = self.wl.get_note(task_id=task['id'])
-            self.requests.append({
-                'address' : task['title'],
-                'due_date' : task['due_date'],
-                'member_name' : '',
-                'email_address' : '',
-                'task_id' : task['id'],
-                'completed' : task['completed'],
-                'assets' : [],
-                'send_email' : task['completed'],
-                'source' : 'wunderlist',
-                'officer_notes' : '' if not note else note
-            })
+            
+            mc_profiles = self.mc.get_address_profiles(task['title'])
+            if len(mc_profiles)==1:
+                self.requests.append({
+                    'address' : mc_profiles[0]['title'],
+                    'due_date' : task['due_date'],
+                    'member_name' : mc_profiles[0]['member_name'],
+                    'email_address' : mc_profiles[0]['email_address'],
+                    'task_id' : task['id'],
+                    'completed' : task['completed'],
+                    'assets' : [],
+                    'send_email' : task['completed'],
+                    'source' : 'wunderlist',
+                    'officer_notes' : note + '\n' + mc_profiles[0]['officer_notes']
+                })
+                print('manual request added with member profile')
+            else:
+                self.requests.append({
+                    'address' : task['title'],
+                    'due_date' : task['due_date'],
+                    'member_name' : '',
+                    'email_address' : '',
+                    'task_id' : task['id'],
+                    'completed' : task['completed'],
+                    'assets' : [],
+                    'send_email' : task['completed'],
+                    'source' : 'wunderlist',
+                    'officer_notes' : '' if not note else note
+                })
             print('manual request added')
     
     

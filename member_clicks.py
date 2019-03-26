@@ -70,6 +70,32 @@ class MemberClicks:
                                      >= self.request_cutoff_hour)
 
 
+    def get_open_requests(self, patrol_date=None):
+        '''The memberclicks api provides the ability to query members' 
+        profiles.  This is a two-part process.
+        1. Submit a POST request containing the query definition and 
+        receive a search_id.
+        2. Submit a GET request containing the serach_id and receive
+        the search results.
+        
+        Results are stored in self.vp_requests,
+        but the method returns parsed results which are pre-processed for
+        the sync process.
+        '''
+        search_id = self._get_search_id()
+        self.profiles = retrieve_results(search_id)
+        return parse_vp_request_profiles()
+        
+
+    def get_address_profiles(self, address):
+        '''Query Memberclicks for profiles matching the provided address.
+        Return in same format as open request serach
+        '''
+        search_id = self._get_search_id(address=address)
+        self.profiles = retrieve_results(search_id)
+        return parse_vp_request_profiles()
+
+
     def _get_credentials(self):
         '''Obtains client credentials saved in a json file.'''
         with open(str(CREDENTIALS), 'r') as fp:
@@ -167,22 +193,6 @@ class MemberClicks:
         return vp_requests
 
 
-    def get_open_requests(self, patrol_date=None):
-        '''The memberclicks api provides the ability to query members' 
-        profiles.  This is a two-part process.
-        1. Submit a POST request containing the query definition and 
-        receive a search_id.
-        2. Submit a GET request containing the serach_id and receive
-        the search results.
-        
-        Results are stored in self.vp_requests,
-        but the method returns parsed results which are pre-processed for
-        the sync process.
-        '''
-        search_id = self._get_search_id()
-        self.profiles = retrieve_results(search_id)
-        return parse_vp_request_profiles()
-        
     ### Extra methods for retrieving master data, etc #########################
     def get_attributes(self, print_to_file=False):
         end_point = '/api/v1/attribute'
