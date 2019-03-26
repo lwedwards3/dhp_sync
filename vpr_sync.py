@@ -127,7 +127,7 @@ class VPRSync:
             try: 
                 task['due_date']
             except KeyError:
-                task['due_date']=(dt.datetime.now() + dt.timedelta(hour=1)).strftime(self.date_format)
+                task['due_date']=(dt.datetime.now() + dt.timedelta(hours=1)).strftime(self.date_format)
             
 
 
