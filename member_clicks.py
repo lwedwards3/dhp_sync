@@ -85,7 +85,7 @@ class MemberClicks:
         search_id = self._get_search_id()
         #self.profiles = retrieve_results(search_id)
         self.profiles = self._retrieve_search_results(search_id)
-        return parse_vp_request_profiles()
+        return self._parse_request_profiles()
         
 
     def get_address_profiles(self, address):
@@ -95,7 +95,7 @@ class MemberClicks:
         search_id = self._get_search_id(address=address)
         #self.profiles = retrieve_results(search_id)
         self.profiles = self._retrieve_search_results(search_id)
-        return parse_vp_request_profiles()
+        return self._parse_request_profiles()
 
 
     def _get_credentials(self):
@@ -188,7 +188,8 @@ class MemberClicks:
             request['send_email']=False
             request['member_name'] = profile['[Contact Name]']
             request['email_address'] = profile['[Email | Primary]']
-            request['officer_notes'] = self.profile_info(profile)
+            #request['officer_notes'] = self.profile_info(profile)
+            request['officer_notes'] = self._parse_officer_note(profile)
             
             vp_requests.append(request)
         print('requests',len(vp_requests))
