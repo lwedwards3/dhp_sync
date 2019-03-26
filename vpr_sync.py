@@ -4,16 +4,8 @@
 Tag all request with their source (memberclicks or wunderlist)
 - DONE Alter get_mc_requests (source: 'memberclicks')
 - DONE Alter sync_with_wl (wl not in mc - soruce: 'wunderlist')
+- Get profile for manually-entered tasks
 
-If in TASKS but not in REQUESTS:
-    If in json file:
-        if Souce=memberclicks:
-            delete it.  the request was cancelled.
-        if Source=wunderlist:
-            Copy it to REQUESTS.  It was manually added.   (source=wunderlist)
-    Else:
-        Copy it to REQUESTS.  It is a new, manually added requet.
-        Use address to look up member info
 ================================================================
 '''
 
@@ -29,15 +21,6 @@ from email.mime.text import MIMEText
 from wunder_list import WunderList
 from member_clicks import MemberClicks
 
-'''CREDENTIALS = Path.cwd().parent / 'creds.json'
-LOG_FILE = Path.cwd().parent / 'log.txt'
-REQUESTS_FILE = Path.cwd().parent / 'request_list.json'
-CRED_PROFILE = 'MemberClicks_email'
-MEMBER_EMAIL_TEMPLATE = Path.cwd() / 'member_email_template.txt'
-END_OF_DAY_EMAIL_TEMPLATE = Path.cwd() / 'end_of_day_email_template.txt'
-END_OF_DAY_EMAIL_ADDRESS = 'Patrol@DruidHillsPatrol.org'
-'''
-
 class VPRSync:
     '''This Class handles the data sync between MemberClicks and Wunderlist.
     
@@ -45,17 +28,16 @@ class VPRSync:
     2. DONE Update each request with data saved in previous request_list (status, assets)
     3. DONE Retrieve tasks from Wunderlist 
     4. Sync with Wunderlist:
-        a. Add new requests to WL 
-        b. Update requests with info from tasks (send_mail if status changed to complete.)
-        c. Add manually-added tasks to requests
-        Match existing tasks to requests and look for:
-            Change in status (send email if changed to completed)
-            New assets not listed in the file.  (Send email if new assets found)
-        Create new tasks for unmatched requests.  (Do not send email)
-        Create new requests for unmatched (manually added) tasks (Email if complete)
+        a. DONE Add new requests to WL 
+        b. DONE Update request.status with info from tasks (send_mail if status changed to complete.)
+        c. DONE Add manually-added tasks to requests
+        d. Retrieve MC profile for manually added tasks.
+        e. DONE Search for new assets not listed in the file.  (Send email if new assets found)
     6. DONE Send emails to all members where request_list.send_email=True
     7. DONE Save request_list as json file
-    
+    8. DONE Archive yesterday's tasks
+    9. DONE Send EOD email when tasks are archived. 
+
     To determine whether a vacation patrol request exists in WunderList, 
     Memberclicks request (address, due_date) are matched with 
     WunderList task (title, due_date)
@@ -354,21 +336,16 @@ class VPRSync:
                     response += task['title'] + '\t'
                     if 'num_comments' in task.keys():
                         if task['num_comments'] >0:
-                            response += 'C' + str(task['num_comments']) + ' '
+                            response += 'Cmt' + str(task['num_comments']) + ' '
                     if 'num_files' in task.keys():
                         if task['num_files'] >0:
-                            response += 'F' + str(task['num_files'])
+                            response += 'Pho' + str(task['num_files'])
                     response += '\n'
                 return response
 
             with open(self.email_template_eod, 'r') as fp:
                 body = fp.read()
             
-            '''scheduled_tasks = []
-            for tsk in classified_tasks[2]:
-                if tsk['due_date'] == dt.datetime.now().strftime(date_format):
-                    scheduled_tasks.append(tsk)
-            '''
             report_date = (dt.datetime.now() + dt.timedelta(days=-1)).strftime(self.date_format)
             completed_tasks = list_to_string(classified_tasks[0])
             incomplete_tasks = list_to_string(classified_tasks[1])
