@@ -168,7 +168,7 @@ class VPRSync:
             try: 
                 task['due_date']
             except KeyError:
-                task['due_date']=(dt.datetime.now() + dt.timedelta(hour=1)).strftime(date_format)
+                task['due_date']=(dt.datetime.now() + dt.timedelta(hour=1)).strftime(self.date_format)
             
             if not self._update_requests_with_wl_info(task=task):
                 self._create_request_for_manual_task(task=task)
@@ -369,7 +369,7 @@ class VPRSync:
                 if tsk['due_date'] == dt.datetime.now().strftime(date_format):
                     scheduled_tasks.append(tsk)
             '''
-            report_date = (dt.datetime.now() + dt.timedelta(days=-1)).strftime(date_format)
+            report_date = (dt.datetime.now() + dt.timedelta(days=-1)).strftime(self.date_format)
             completed_tasks = list_to_string(classified_tasks[0])
             incomplete_tasks = list_to_string(classified_tasks[1])
             scheduled_tasks = list_to_string(classified_tasks[2])
