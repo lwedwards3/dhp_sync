@@ -454,8 +454,9 @@ class VPRSync:
                 body = self.create_message_body(req)
                 to_addrs = self.email_address_member.copy()
                 if self.email_members_flag:
-                    if len(req['email_address']) > 1:
-                        to_addrs.append(req['email_address'])
+                    if 'email_address' in req.keys():
+                        if len(req['email_address']) > 1:
+                            to_addrs.append(req['email_address'])
                 
                 self.send_mail(to_addrs=to_addrs, 
                                 body=body, 
@@ -464,6 +465,7 @@ class VPRSync:
                 req['send_email'] = False
                 print('email sent', req['address'], req['due_date'])
         print('sent '+str(emails)+' emails')
+
 
 
     def _utc_to_local(self, string_time):
