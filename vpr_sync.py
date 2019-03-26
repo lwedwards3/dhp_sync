@@ -153,6 +153,7 @@ class VPRSync:
         '''For each TASK updates the status of related REQUEST
         If TASK not found, add to REQUESTS
         Finally, retrieve task ASSETS and add to REQUEST''' 
+        for task in self.tasks:
             if not self._update_requests_with_wl_info(task=task):
                 self._create_request_for_manual_task(task=task)
             #self._get_task_assets(task)
