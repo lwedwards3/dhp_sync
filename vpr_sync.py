@@ -122,6 +122,14 @@ class VPRSync:
         else:
             self.archived_tasks = self.wl.get_tasks(list_id=self.wl.archive_list_id)
 
+        for task in self.tasks:
+            # due_date = today if missing
+            try: 
+                task['due_date']
+            except KeyError:
+                task['due_date']=(dt.datetime.now() + dt.timedelta(hour=1)).strftime(self.date_format)
+            
+
 
     def sync_with_wl(self):
         ''' 
@@ -145,13 +153,6 @@ class VPRSync:
         '''For each TASK updates the status of related REQUEST
         If TASK not found, add to REQUESTS
         Finally, retrieve task ASSETS and add to REQUEST''' 
-        for task in self.tasks:
-            # due_date = today if missing
-            try: 
-                task['due_date']
-            except KeyError:
-                task['due_date']=(dt.datetime.now() + dt.timedelta(hour=1)).strftime(self.date_format)
-            
             if not self._update_requests_with_wl_info(task=task):
                 self._create_request_for_manual_task(task=task)
             #self._get_task_assets(task)
