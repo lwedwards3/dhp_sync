@@ -88,11 +88,11 @@ class MemberClicks:
         return self._parse_request_profiles()
         
 
-    def get_address_profiles(self, address):
+    def get_address_profiles(self, address_line_1):
         '''Query Memberclicks for profiles matching the provided address.
         Return in same format as open request serach
         '''
-        search_id = self._get_search_id(address=address)
+        search_id = self._get_search_id(address_line_1=address_line_1)
         #self.profiles = retrieve_results(search_id)
         self.profiles = self._retrieve_search_results(search_id)
         return self._parse_request_profiles()
@@ -135,7 +135,7 @@ class MemberClicks:
         return self.session.get(url=url).json()
 
 
-    def _get_search_id(self, member_address=None):
+    def _get_search_id(self, address_line_1=None):
         '''Returns a query search id.  
         If member_address is provided, it searches for matching addresses.  
         Otherwise, searches for open vacation patrol requests.'''
@@ -143,13 +143,13 @@ class MemberClicks:
 
         mc_patrol_date = self.patrol_date.strftime(self.mc_date_format)
 
-        if not member_address:
+        if not address_line_1:
             filter_def = {'Vacation Patrol Request Departure Date': \
                     {"startDate": "01/01/2019", "endDate": mc_patrol_date},
                     'Vacation Patrol Request Return Date': \
                     {"startDate": mc_patrol_date, "endDate": "12/31/2030"}}
         else:
-            filter_def = {'[Address | Primary | Line 1]' : member_address}
+            filter_def = {'[Address | Primary | Line 1]' : address_line_1}
 
         self._get_access_token()
         url = self.url + '/api/v1/profile/search'

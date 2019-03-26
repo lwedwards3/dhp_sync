@@ -128,7 +128,7 @@ class VPRSync:
                 task['due_date']
             except KeyError:
                 task['due_date']=(dt.datetime.now() + dt.timedelta(hours=1)).strftime(self.date_format)
-            
+                self.wl.update_task_due_date(task['id'], due_date=task['due_date'])
 
 
     def sync_with_wl(self):
@@ -188,11 +188,12 @@ class VPRSync:
     def _create_request_for_manual_task(self, task):
             '''if a task was manually added to WL, this will add it to the requests list'''
             note = self.wl.get_note(task_id=task['id'])
-            
-            mc_profiles = self.mc.get_address_profiles(task['title'])
+            mc_profiles = self.mc.get_address_profiles(address_line_1=task['title'])            
             if len(mc_profiles)==1:
+                create_note = False if len(note) > 0 else True
+                new_note = [note] + mc_profiles[0]['officer_notes']
                 self.requests.append({
-                    'address' : mc_profiles[0]['title'],
+                    'address' : mc_profiles[0]['address'],
                     'due_date' : task['due_date'],
                     'member_name' : mc_profiles[0]['member_name'],
                     'email_address' : mc_profiles[0]['email_address'],
@@ -201,8 +202,13 @@ class VPRSync:
                     'assets' : [],
                     'send_email' : task['completed'],
                     'source' : 'wunderlist',
-                    'officer_notes' : note + '\n' + mc_profiles[0]['officer_notes']
+                    'officer_notes' : new_note
                 })
+                content = '\n'.join(new_note)
+                if create_note:
+                    self.wl.post_new_note(task['id'], content)
+                else:
+                    self.wl.update_note(task['id'],task['revision'], content=content)
                 print('manual request added with member profile')
             else:
                 self.requests.append({

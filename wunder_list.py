@@ -87,6 +87,15 @@ class WunderList:
         response = self.client.create_note(task_id, note)
         return response    
 
+    def update_note(self, task_id, revision=None, content=None):
+        '''Posts a note to a Wunderlist task'''
+        if not revision:
+            revision = int(self.get_task(task_id=task_id)['revision'])
+        else:
+            revision = int(revision)
+        response = self.client.update_note(task_id, revision, content)
+        return response    
+
     def get_note(self, task_id):
         '''Returns the note, if available'''
         note = self.client.get_task_notes(task_id=task_id)
@@ -134,3 +143,12 @@ class WunderList:
                                        list_id=self.archive_list_id)
 
 
+    def update_task_due_date(self, task_id, revision=None, due_date=None):
+        '''Updates the due_date for the selected task.'''
+        if not revision:
+            revision = int(self.get_task(task_id=task_id)['revision'])
+        else:
+            revision = int(revision)
+        return self.client.update_task(task_id=task_id, 
+                                       revision=revision, 
+                                       due_date=due_date)
