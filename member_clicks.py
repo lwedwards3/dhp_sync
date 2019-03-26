@@ -83,7 +83,8 @@ class MemberClicks:
         the sync process.
         '''
         search_id = self._get_search_id()
-        self.profiles = retrieve_results(search_id)
+        #self.profiles = retrieve_results(search_id)
+        self.profiles = self._retrieve_search_results(search_id)
         return parse_vp_request_profiles()
         
 
@@ -92,7 +93,8 @@ class MemberClicks:
         Return in same format as open request serach
         '''
         search_id = self._get_search_id(address=address)
-        self.profiles = retrieve_results(search_id)
+        #self.profiles = retrieve_results(search_id)
+        self.profiles = self._retrieve_search_results(search_id)
         return parse_vp_request_profiles()
 
 
