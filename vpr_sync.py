@@ -69,8 +69,9 @@ class VPRSync:
         self.email_template_member = str(Path.cwd() / 'email_template_member.txt')
         self.email_template_eod = str(Path.cwd() / 'email_template_eod.txt')
         self.email_address_eod = ['Patrol@DruidHillsPatrol.org','lwedwards3@gmail.com']
-        self.email_address_member = ['lwedwards3@gmail.com']
         self.email_members_flag = False
+        self.email_address_member = []
+        self.email_address_bcc = ['lwedwards3@gmail.com']
         self.test_mode = test_mode
         if self.test_mode:
             self.credentials_email_profile = 'MemberClicks_email'
@@ -79,9 +80,10 @@ class VPRSync:
             self.email_template_member = str(Path.cwd() / 'test_email_template_member.txt')
             self.email_template_eod = str(Path.cwd() / 'test_email_template_eod.txt')
             self.email_address_eod = ['lwedwards@mindspring.com']
-            self.email_address_member = ['lwedwards@mindspring.com']
             self.email_members_flag = False
-        
+            self.email_address_member = ['lwedwards@mindspring.com']
+            self.email_address_bcc = ['lwedwards3@gmail.com']
+            
 
     def _auto_mode(self):
         self._get_mc_requests()
@@ -406,13 +408,14 @@ class VPRSync:
             f.write(str_line)
 
 
-    def send_mail(self, to_addrs, body, subject=None):
+    def send_mail(self, to_addrs, body, subject=None, bcc=None):
         if type(to_addrs) == list:
             to_addrs = ','.join(to_addrs)
         
         msg = MIMEText(body)
         msg['From'] = 'DHP Vacation Patrol<VacationPatrol@DruidHillsPatrol.org>'
         msg['To'] = to_addrs
+        msg['Bcc'] = bcc
         msg['Subject'] = subject
         
         print('Email to:',to_addrs, subject)
@@ -451,6 +454,7 @@ class VPRSync:
             if req['send_email']==True:
                 body = self.create_message_body(req)
                 to_addrs = self.email_address_member.copy()
+                bcc=self.email_address_bcc if len(self.email_address_bcc)>1 else self.email_address_bcc[0]
                 if self.email_members_flag:
                     if 'email_address' in req.keys():
                         print('\nemail_address in keys\n')
@@ -459,7 +463,8 @@ class VPRSync:
                         print('\nemail_address not in keys\n')
                 self.send_mail(to_addrs=to_addrs, 
                                 body=body, 
-                                subject='DHP Vacation Patrol Update')
+                                subject='DHP Vacation Patrol Update',
+                                bcc=bcc)
                 emails += 1
                 req['send_email'] = False
                 print('email sent', req['address'], req['due_date'])
