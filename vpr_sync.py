@@ -189,7 +189,7 @@ class VPRSync:
             '''if a task was manually added to WL, this will add it to the requests list'''
             note = self.wl.get_note(task_id=task['id'])
             mc_profiles = self.mc.get_address_profiles(address_line_1=task['title'])            
-            if len(mc_profiles)==1:
+            if len(mc_profiles)==1:  # if only one profile is returned, use it.
                 create_note = False if len(note) > 0 else True
                 new_note = [note] + mc_profiles[0]['officer_notes']
                 self.requests.append({
@@ -209,6 +209,8 @@ class VPRSync:
                     self.wl.post_new_note(task['id'], content)
                 else:
                     self.wl.update_note(task['id'],task['revision'], content=content)
+                if not task['title'] == mc_profiles[0]['address']:  # Update address if doesn't exactly match MC profile
+                    self.wl.update_task_title(task['id'], title=mc_profiles[0]['address'])
                 print('manual request added with member profile')
             else:
                 self.requests.append({
@@ -451,9 +453,10 @@ class VPRSync:
                 to_addrs = self.email_address_member.copy()
                 if self.email_members_flag:
                     if 'email_address' in req.keys():
-                        if len(req['email_address']) > 1:
-                            to_addrs.append(req['email_address'])
-                
+                        print('\nemail_address in keys\n')
+                        to_addrs.append(req['email_address'])
+                    else:
+                        print('\nemail_address not in keys\n')
                 self.send_mail(to_addrs=to_addrs, 
                                 body=body, 
                                 subject='DHP Vacation Patrol Update')

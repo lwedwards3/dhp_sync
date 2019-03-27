@@ -152,3 +152,14 @@ class WunderList:
         return self.client.update_task(task_id=task_id, 
                                        revision=revision, 
                                        due_date=due_date)
+
+
+    def update_task_title(self, task_id, revision=None, title=None):
+        '''Updates the title for the selected task.'''
+        if not revision:
+            revision = int(self.get_task(task_id=task_id)['revision'])
+        else:
+            revision = int(revision)
+        return self.client.update_task(task_id=task_id, 
+                                       revision=revision, 
+                                       title=title)

@@ -253,12 +253,12 @@ class MemberClicks:
                 ('[Phone | Other]', 'Phone-other'),
                 ('[Phone | Work]', 'Phone-work'),
                 ('[Email | Email]', 'Email'),
-                ('Emergency Contact 1- Name', 'EM contact'),
-                ('Emergency Contact 1- Phone Number', 'Emg contact ph'),
-                ('Emergency Contact 1- Relationship', 'Emg contact rel'),
-                ('Emergency Contact 2 - Name', 'Emg contact2'),
-                ('Emergency Contact 2 - Phone Number', 'Emg contact2 ph'),
-                ('Emergency Contact 2 - Relationship', 'Emg contact 2 rel'),
+                ('Emergency Contact 1- Name', 'Emerg name'),
+                ('Emergency Contact 1- Phone Number', 'Emerg ph'),
+                ('Emergency Contact 1- Relationship', 'Emerg relatn'),
+                ('Emergency Contact 2 - Name', 'Emerg name2'),
+                ('Emergency Contact 2 - Phone Number', 'Emerg ph2'),
+                ('Emergency Contact 2 - Relationship', 'Emerg relatn2'),
                 ('Jurisdiction - Police', 'Jurisdiction'))
         officer_note = [profile['Vacation Patrol Request Special Notes to Officer'],
                     '-----------------------------------',
@@ -272,35 +272,3 @@ class MemberClicks:
                 officer_note.append(str(attr[1]) + ': ' + str(val))
                 officer_note.append('')
         return officer_note
-
-
-
-
-
-
-
-
-
-
-    '''def profiles_to_json(self):
-        profiles = []
-        for profile in self.profiles:
-            profiles.append({'profile_id' : profile['[Profile ID]'],
-                             'address' : profile['[Address | Primary | Line 1]'] \
-                             + ' ' + profile['[Address | Primary | Line 2]'],
-                             'contact_name' : profile['[Contact Name]'],
-                             'email_primary' : profile['[Email | Primary]'],
-                             'phone_primary' : profile['[Phone | Primary]'],
-                             'phone_cell' : profile['[Phone | Cell]'],
-                             'vp_request_alias' : profile['Vacation Patrol Request Alias'],
-                             'vp_departure_date' : profile['Vacation Patrol Request Departure Date'],
-                             'vp_departure_time' : profile['Vacation Patrol Request Departure Time'],
-                             'vp_return_date' : profile['Vacation Patrol Request Return Date'],
-                             'vp_return_time' : profile['Vacation Patrol Request Return Time'],
-                             'vp_notes' : profile['Vacation Patrol Request Departure Date'],
-                             'status' : 'Active', 
-                             'wl_task_ids' : []})
-        with open('vacation_patrol_requests.json', 'w') as fp:
-            json.dump(profiles, fp)'''
-
-
