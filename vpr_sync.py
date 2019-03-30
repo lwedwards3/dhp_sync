@@ -70,8 +70,8 @@ class VPRSync:
         self.email_template_eod = str(Path.cwd() / 'email_template_eod.txt')
         self.email_address_eod = ['Patrol@DruidHillsPatrol.org','lwedwards3@gmail.com']
         self.email_members_flag = False
-        self.email_address_member = []
-        self.email_address_bcc = ['lwedwards3@gmail.com','Patrol@DruidHillsPatrol.org']
+        self.email_address_member = ['Patrol@DruidHillsPatrol.org']
+        self.email_address_bcc = ['lwedwards3@gmail.com']
         self.test_mode = test_mode
         if self.test_mode:
             self.credentials_email_profile = 'MemberClicks_email'
