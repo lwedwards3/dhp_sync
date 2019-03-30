@@ -321,13 +321,13 @@ class VPRSync:
             cutoff_date = dt.datetime.now() + dt.timedelta(days=-1)
             self.num_archived_tasks = 0
 
+            completed_tasks = []
+            incomplete_tasks = []
+            scheduled_tasks = []
             if not self.tasks:
                 self._get_wl_tasks()
                     
             if dt.datetime.now().hour >= 1:
-                completed_tasks = []
-                incomplete_tasks = []
-                scheduled_tasks = []
                 for task in self.tasks:
                     due = dt.datetime.strptime(task['due_date'],self.date_format)
                     if due <= cutoff_date:
