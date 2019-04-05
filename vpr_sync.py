@@ -118,6 +118,8 @@ class VPRSync:
                     req['send_email'] = False
                     if 'source' in pre.keys():
                         req['source'] = pre['source']
+                    if 'emails_sent' in pre.keys():
+                        req['emails_sent'] = pre['emails_sent']
 
 
     def _get_wl_tasks(self, archived=False):
