@@ -14,6 +14,7 @@ import datetime as dt
 import dateutil.parser
 import dateutil.tz
 import json
+import csv
 from pathlib import Path
 import smtplib
 from email.mime.text import MIMEText
@@ -62,9 +63,11 @@ class VPRSync:
         self.num_archived_tasks = 0
         self.num_emails = 0
         self.date_format = '%Y-%m-%d'
+        self.datetime_format = '%Y-%m-%d %H:%M:%S'
         self.credentials_file = str(Path.cwd().parent / 'creds.json')
         self.credentials_email_profile = 'MemberClicks_email'
         self.log_file = str(Path.cwd().parent / 'log.txt')
+        self.request_log_file = str(Path.cwd().parent / 'request_log.txt')
         self.requests_file = str(Path.cwd().parent / 'request_list.json')
         self.email_template_member = str(Path.cwd() / 'email_template_member.txt')
         self.email_template_eod = str(Path.cwd() / 'email_template_eod.txt')
@@ -76,6 +79,7 @@ class VPRSync:
         if self.test_mode:
             self.credentials_email_profile = 'MemberClicks_email'
             self.log_file = str(Path.cwd().parent / 'test_log.txt')
+            self.request_log_file = str(Path.cwd().parent / 'test_request_log.txt')
             self.requests_file = str(Path.cwd().parent / 'test_request_list.json')
             self.email_template_member = str(Path.cwd() / 'test_email_template_member.txt')
             self.email_template_eod = str(Path.cwd() / 'test_email_template_eod.txt')
@@ -83,7 +87,7 @@ class VPRSync:
             self.email_members_flag = False
             self.email_address_member = ['lwedwards@mindspring.com']
             self.email_address_bcc = ['lwedwards3@gmail.com']
-            
+
 
     def _auto_mode(self):
         self._get_mc_requests()
@@ -267,10 +271,17 @@ class VPRSync:
     def _find_request(self, task):
         response = None
         for request in self.requests:
-            if (request['addresss']==task['title']) & (request['due_date']==task['due_date']):
+            if (request['address']==task['title']) & (request['due_date']==task['due_date']):
                 response = request['task_id']
         return response
 
+    def _get_request(self, task):
+        '''returns the matching request, if one exists
+        '''
+        for request in self.requests:
+            if request['task_id'] == task:
+                return request
+        return None
 
     def _get_wl_assets(self):
         '''Retrieves comments and files (photos) from wunderlist
@@ -323,6 +334,9 @@ class VPRSync:
         print('archive_expired_tasks')
 
         def archive_tasks():
+            '''Returns a tuple classifing each task as completed (prior day), 
+            incomplete (prior day) or scheduled (current day)
+            '''
             print('archive_tasks')
             cutoff_date = dt.datetime.now() + dt.timedelta(days=-1)
             self.num_archived_tasks = 0
@@ -344,9 +358,9 @@ class VPRSync:
                         else:
                             incomplete_tasks.append(task)
 
-                        self.wl.archive_task(task_id=task['id'],
-                                        revision=task['revision'])
+                        self.wl.archive_task(task_id=task['id'], revision=task['revision'])
                         self.num_archived_tasks += 1
+                        _post_to_request_log(task['id'])
                     else:
                         scheduled_tasks.append(task)
 
@@ -394,6 +408,26 @@ class VPRSync:
             self.send_mail(to_addrs=self.email_address_eod, 
                             body=msg, 
                             subject='DHP End of Day Vacation Patrol Report')
+
+        def _post_to_request_log(task_id):
+            '''Creates an entry in the request log for the given task.
+            '''
+            request = self._get_request(task_id)
+            log_entry = [request['due_date'], 
+                        request['address'],
+                        'completed' if request['completed'] else 'not completed',
+                        sum([1 for asset in request['assets'] if asset['type']=='comment']),
+                        sum([1 for asset in request['assets'] if asset['type']=='file']),
+                        len(request['emails_sent']),
+                        request['member_status'],
+                        request['task_id']]
+            
+#            with open(str(self.request_log_file), 'a') as fp:
+#                fp.write(','.join(log_entry)+'\n')
+            with open(str(self.request_log_file), 'a') as fp:
+                wr = csv.writer(fp, quoting=csv.QUOTE_ALL)
+                wr.writerow(log_entry)
+
 
         classified_tasks = archive_tasks()
         end_of_day_report(classified_tasks)
@@ -472,6 +506,7 @@ class VPRSync:
                                 subject='DHP Vacation Patrol Update',
                                 bcc=bcc)
                 emails += 1
+                req['emails_sent'].append(dt.datetime.now().strftime(self.datetime_format))
                 req['send_email'] = False
                 print('email sent', req['address'], req['due_date'])
         print('sent '+str(emails)+' emails')

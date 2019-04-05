@@ -66,11 +66,12 @@ class MemberClicks:
         self.vp_requests=[]
         self.wl_date_format = "%Y-%m-%d"  # WunderList date format
         current_hour = dt.datetime.now().hour
-        self.patrol_date = dt.datetime.now().date() + dt.timedelta(current_hour \
-                                     >= self.request_cutoff_hour)
+        self.patrol_date = dt.datetime.now().date() + dt.timedelta(current_hour >= self.request_cutoff_hour)
+        # to import old requests (test archive process)
+        #self.patrol_date = dt.datetime.now().date() + dt.timedelta(days=-1)
 
 
-    def get_open_requests(self, patrol_date=None):
+    def get_open_requests(self):
         '''The memberclicks api provides the ability to query members' 
         profiles.  This is a two-part process.
         1. Submit a POST request containing the query definition and 
@@ -83,7 +84,6 @@ class MemberClicks:
         the sync process.
         '''
         search_id = self._get_search_id()
-        #self.profiles = retrieve_results(search_id)
         self.profiles = self._retrieve_search_results(search_id)
         return self._parse_request_profiles()
         
@@ -185,10 +185,11 @@ class MemberClicks:
             request['task_id'] = ''
             request['completed'] = False
             request['assets'] = []
+            request['emails_sent'] = []
             request['send_email']=False
             request['member_name'] = profile['[Contact Name]']
+            request['member_status'] = profile['[Member Status]']
             request['email_address'] = profile['[Email | Primary]']
-            #request['officer_notes'] = self.profile_info(profile)
             request['officer_notes'] = self._parse_officer_note(profile)
             
             vp_requests.append(request)
