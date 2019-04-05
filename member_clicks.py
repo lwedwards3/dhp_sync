@@ -209,6 +209,20 @@ class MemberClicks:
         end_point = '/api/v1/profile'
         return self._request_json(end_point=end_point)
     
+    def get_all_profiles(self):
+        '''Returns a list containing all profiles.'''
+        print('retrieve_all_profiles')
+        url = self.url + '/api/v1/profile'
+        profiles = []
+        while True:
+            response = self.session.get(url=url).json()
+            for profile in response['profiles']:
+                profiles.append(profile)
+            if not response['nextPageUrl']:
+                break
+            url = response['nextPageUrl']
+        return profiles
+
     def get_groups(self):
         end_point = '/api/v1/group'
         return self._request_json(end_point=end_point)

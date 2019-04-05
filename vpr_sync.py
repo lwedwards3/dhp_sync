@@ -157,6 +157,7 @@ class VPRSync:
         Finally, retrieve task ASSETS and add to REQUEST''' 
         for task in self.tasks:
             if not self._update_requests_with_wl_info(task=task):
+                print('_push_tasks:',task['title'])
                 self._create_request_for_manual_task(task=task)
             #self._get_task_assets(task)
 
@@ -165,6 +166,8 @@ class VPRSync:
         '''task is a wunderlist task
         Finds matching request and updates with info from the task.
         Returns True if task was found in requests, otherwise False.''' 
+
+        # First, search requests from memberclicks for matching item
         for req in self.requests:
             if (task['title'] == req['address']) & (task['due_date'] == req['due_date']):
                 # send_mail = True if newly completed.
@@ -176,6 +179,7 @@ class VPRSync:
                 print('request updated', req['address'], req['due_date'])
                 return True
         
+        # If not in memberclicks requests, search json file from previous sync 
         for req in self.previous_requests:
             if task['id'] == req['task_id']:
                 if req['completed'] != task['completed']:
@@ -207,12 +211,12 @@ class VPRSync:
                     'officer_notes' : new_note
                 })
                 content = '\n'.join(new_note)
+                if not task['title'] == mc_profiles[0]['address']:  # Update address if doesn't exactly match MC profile
+                    self.wl.update_task_title(task['id'], title=mc_profiles[0]['address'])
                 if create_note:
                     self.wl.post_new_note(task['id'], content)
                 else:
                     self.wl.update_note(task['id'],task['revision'], content=content)
-                if not task['title'] == mc_profiles[0]['address']:  # Update address if doesn't exactly match MC profile
-                    self.wl.update_task_title(task['id'], title=mc_profiles[0]['address'])
                 print('manual request added with member profile')
             else:
                 self.requests.append({
@@ -269,6 +273,8 @@ class VPRSync:
 
 
     def _get_wl_assets(self):
+        '''Retrieves comments and files (photos) from wunderlist
+        and adds them to the request'''
         def asset_is_new(asset_id, assets):
             for asset in assets:
                 if asset['id'] == asset_id:
@@ -293,20 +299,20 @@ class VPRSync:
                         request['send_email']=True # Flag to email new comment
                         print('comment added')
 
-            print('about to get files',request['task_id'],request['address'])
-            files = self.wl.get_task_files(task_id=request['task_id'])
-            # Add number of files to self.tasks
-            self._add_task_attribute(request['task_id'], 'num_files', len(files))
-            for file in files:
-                if not asset_is_new(file['id'], request['assets']):
-                    request['assets'].append({
-                        'id' : file['id'],
-                        'created_at' : file['created_at'],
-                        'text' : file['url'],
-                        'type' : 'file'
-                    })
-                    request['send_email']=True # Flag to email new file
-                    print('file added')
+                print('about to get files',request['task_id'],request['address'])
+                files = self.wl.get_task_files(task_id=request['task_id'])
+                # Add number of files to self.tasks
+                self._add_task_attribute(request['task_id'], 'num_files', len(files))
+                for file in files:
+                    if asset_is_new(file['id'], request['assets']):
+                        request['assets'].append({
+                            'id' : file['id'],
+                            'created_at' : file['created_at'],
+                            'text' : file['url'],
+                            'type' : 'file'
+                        })
+                        request['send_email']=True # Flag to email new file
+                        print('file added')
 
 
     def archive_expired_tasks(self):
