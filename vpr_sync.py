@@ -71,10 +71,10 @@ class VPRSync:
         self.requests_file = str(Path.cwd().parent / 'request_list.json')
         self.email_template_member = str(Path.cwd() / 'email_template_member.txt')
         self.email_template_eod = str(Path.cwd() / 'email_template_eod.txt')
-        self.email_address_eod = ['Patrol@DruidHillsPatrol.org','lwedwards3@gmail.com']
-        self.email_members_flag = False
-        self.email_address_member = ['Patrol@DruidHillsPatrol.org'] # this line changed
-        self.email_address_bcc = ['lwedwards3@gmail.com'] # this line changed
+        self.email_address_eod = 'Patrol@DruidHillsPatrol.org,lwedwards3@gmail.com'
+        self.email_members_flag = True
+        self.email_address_member = '' # this line changed
+        self.email_address_bcc = ['Patrol@DruidHillsPatrol.org','lwedwards3@gmail.com'] # this line changed
         self.test_mode = test_mode
         if self.test_mode:
             self.credentials_email_profile = 'MemberClicks_email'
@@ -83,10 +83,10 @@ class VPRSync:
             self.requests_file = str(Path.cwd().parent / 'test_request_list.json')
             self.email_template_member = str(Path.cwd() / 'test_email_template_member.txt')
             self.email_template_eod = str(Path.cwd() / 'test_email_template_eod.txt')
-            self.email_address_eod = ['lwedwards@mindspring.com']
+            self.email_address_eod = 'lwedwards@mindspring.com'
             self.email_members_flag = False
-            self.email_address_member = ['lwedwards@mindspring.com']
-            self.email_address_bcc = ['lwedwards3@gmail.com']
+            self.email_address_member = ''
+            self.email_address_bcc = ['lwedwards3@gmail.com','lwedwards@mindspring.com']
 
 
     def _auto_mode(self):
@@ -200,9 +200,9 @@ class VPRSync:
     def _create_request_for_manual_task(self, task):
             '''if a task was manually added to WL, this will add it to the requests list'''
             note = self.wl.get_note(task_id=task['id'])
+            create_note = False if len(note) > 0 else True
             mc_profiles = self.mc.get_address_profiles(address_line_1=task['title'])            
             if len(mc_profiles)==1:  # if only one profile is returned, use it.
-                create_note = False if len(note) > 0 else True
                 new_note = [note] + mc_profiles[0]['officer_notes']
                 self.requests.append({
                     'address' : mc_profiles[0]['address'],
@@ -212,6 +212,7 @@ class VPRSync:
                     'task_id' : task['id'],
                     'completed' : task['completed'],
                     'assets' : [],
+                    'emails_sent' : [],
                     'send_email' : task['completed'],
                     'source' : 'wunderlist',
                     'officer_notes' : new_note
@@ -424,12 +425,9 @@ class VPRSync:
                         request['member_status'],
                         request['task_id']]
             
-#            with open(str(self.request_log_file), 'a') as fp:
-#                fp.write(','.join(log_entry)+'\n')
             with open(str(self.request_log_file), 'a') as fp:
                 wr = csv.writer(fp, quoting=csv.QUOTE_ALL)
                 wr.writerow(log_entry)
-
 
         classified_tasks = archive_tasks()
         end_of_day_report(classified_tasks)
@@ -451,21 +449,21 @@ class VPRSync:
 
 
     def send_mail(self, to_addrs, body, subject=None, bcc=None):
-        if type(to_addrs) == list:
-            to_addrs = ','.join(to_addrs)
-        
-        msg = MIMEText(body)
-        msg['From'] = 'DHP Vacation Patrol<VacationPatrol@DruidHillsPatrol.org>'
-        msg['To'] = to_addrs
-        msg['Bcc'] = bcc
-        msg['Subject'] = subject
-        
-        print('Email to:',to_addrs, subject)
-        with smtplib.SMTP_SSL(self.email_host, 465) as server:
-            server.login(self.email_address, self.password)
-            server.send_message(msg)
-        self.num_emails += 1
-
+            '''to_addrs is a string (may contain multiple addresses sep by commas)
+            bcc is a list of addresses
+            '''
+            recipients = [to_addrs] + bcc
+            msg = MIMEText(body)
+            msg['From'] = 'DHP Vacation Patrol<VacationPatrol@DruidHillsPatrol.org>'
+            msg['To'] = to_addrs
+            msg['Subject'] = subject
+            
+            print('Email to:',to_addrs, subject)
+            with smtplib.SMTP_SSL(self.email_host, 465) as server:
+                server.login(self.email_address, self.password)
+                server.send_message(from_addr=from_addr, to_addrs=recipients, msg=msg)
+            self.num_emails += 1
+            
     
     def create_message_body(self, request):
         '''request is a dictionary of data for an individual request.
@@ -496,11 +494,11 @@ class VPRSync:
             if req['send_email']==True:
                 body = self.create_message_body(req)
                 to_addrs = self.email_address_member.copy()
-                bcc=self.email_address_bcc if len(self.email_address_bcc)>1 else self.email_address_bcc[0]
+                bcc = self.email_address_bcc 
                 if self.email_members_flag:
                     if 'email_address' in req.keys():
                         print('\nemail_address in keys\n')
-                        to_addrs.append(req['email_address'])
+                        to_addrs = to_addrs + req['email_address']
                     else:
                         print('\nemail_address not in keys\n')
                 self.send_mail(to_addrs=to_addrs, 

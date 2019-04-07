@@ -1,0 +1,14 @@
+<html>
+  <body>
+    <h3><img src="https://www.druidhillspatrol.org/assets/site/druid-hills-patrol.png" width="70" height="74">Druid Hills Patrol</h3>
+    <h2>Vacation Patrol Update</h2>
+    <p>The Druid Hills Patrol visited your home, as you requested.<br><br>
+	{}<br>
+	Patrol date: {}<br><br>
+	{}<br><br>
+	DHP police officers will continue to watch for suspicious activity.<br><br>
+	If you have any questions, please leave a message for the Officer-in-Charge at 404-373-1060 or Patrol@DruidHillsPatrol.org.<br><br> 
+	For all emergencies, please call 911 first.<br><br>
+	Thank you for being a member of the Druid Hills Patrol.  Please do not respond to this message; it is sent from an unmonitored mailbox.</p>
+  </body>
+</html>
