@@ -75,6 +75,7 @@ class VPRSync:
         self.email_members_flag = True
         self.email_address_member = '' # this line changed
         self.email_address_bcc = ['Patrol@DruidHillsPatrol.org','lwedwards3@gmail.com'] # this line changed
+        self.email_address_from = 'VacationPatrol@DruidHillsPatrol.org'
         self.test_mode = test_mode
         if self.test_mode:
             self.credentials_email_profile = 'MemberClicks_email'
@@ -87,7 +88,8 @@ class VPRSync:
             self.email_members_flag = False
             self.email_address_member = ''
             self.email_address_bcc = ['lwedwards3@gmail.com','lwedwards@mindspring.com']
-
+            self.email_address_from = 'VacationPatrol@DruidHillsPatrol.org'
+        
 
     def _auto_mode(self):
         self._get_mc_requests()
@@ -461,7 +463,7 @@ class VPRSync:
             print('Email to:',to_addrs, subject)
             with smtplib.SMTP_SSL(self.email_host, 465) as server:
                 server.login(self.email_address, self.password)
-                server.send_message(from_addr=from_addr, to_addrs=recipients, msg=msg)
+                server.send_message(from_addr=self.email_address_from, to_addrs=recipients, msg=msg)
             self.num_emails += 1
             
     
