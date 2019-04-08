@@ -493,7 +493,7 @@ class VPRSync:
         for req in self.requests:
             if req['send_email']==True:
                 body = self.create_message_body(req)
-                to_addrs = self.email_address_member.copy()
+                to_addrs = self.email_address_member
                 bcc = self.email_address_bcc 
                 if self.email_members_flag:
                     if 'email_address' in req.keys():
