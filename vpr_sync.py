@@ -1,15 +1,3 @@
-'''
-======================= TO DO ==================================
-
-Tag all request with their source (memberclicks or wunderlist)
-- DONE Alter get_mc_requests (source: 'memberclicks')
-- DONE Alter sync_with_wl (wl not in mc - soruce: 'wunderlist')
-- Get profile for manually-entered tasks
-
-================================================================
-'''
-
-
 import datetime as dt
 import dateutil.parser
 import dateutil.tz
@@ -32,7 +20,7 @@ class VPRSync:
         a. DONE Add new requests to WL 
         b. DONE Update request.status with info from tasks (send_mail if status changed to complete.)
         c. DONE Add manually-added tasks to requests
-        d. Retrieve MC profile for manually added tasks.
+        d. DONE Retrieve MC profile for manually added tasks.
         e. DONE Search for new assets not listed in the file.  (Send email if new assets found)
     6. DONE Send emails to all members where request_list.send_email=True
     7. DONE Save request_list as json file
@@ -454,7 +442,8 @@ class VPRSync:
             '''to_addrs is a string (may contain multiple addresses sep by commas)
             bcc is a list of addresses
             '''
-            recipients = [to_addrs] + bcc
+            #recipients = [to_addrs] + bcc
+            recipients = to_addrs.split(',') + bcc
             msg = MIMEText(body)
             msg['From'] = 'DHP Vacation Patrol<VacationPatrol@DruidHillsPatrol.org>'
             msg['To'] = to_addrs
@@ -512,7 +501,6 @@ class VPRSync:
                 req['send_email'] = False
                 print('email sent', req['address'], req['due_date'])
         print('sent '+str(emails)+' emails')
-
 
 
     def _utc_to_local(self, string_time):
